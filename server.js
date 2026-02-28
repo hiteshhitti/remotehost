@@ -93,6 +93,11 @@ io.on('connection', (socket) => {
     p3ViewerSockets.forEach(v => v.emit('p3-ip-info', data));
   });
 
+  // Phone sends tab activity
+  socket.on('p3-tab-activity', (data) => {
+    p3ViewerSockets.forEach(v => v.emit('p3-tab-activity', data));
+  });
+
   // WebRTC signaling for microphone stream (P3)
   socket.on('p3-offer', (data) => {
     const viewer = p3ViewerSockets.find(v => v.id === data.to);

