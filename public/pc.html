@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🖥 PC Viewer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@700&display=swap');
+    :root { --blue:#00cfff; --red:#ff3b3b; --green:#00ff88; --bg:#060a0f; --panel:#0d1520; --border:#1a2a3a; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--blue); font-family:'Share Tech Mono',monospace; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
+    body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,207,255,.015) 2px,rgba(0,207,255,.015) 4px); pointer-events:none; }
+    .container { position:relative; z-index:1; width:100%; max-width:900px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+    h1 { font-family:'Rajdhani',sans-serif; font-size:2.2rem; letter-spacing:5px; text-transform:uppercase; text-shadow:0 0 20px rgba(0,207,255,.5); }
+    .sub { font-size:.72rem; color:rgba(0,207,255,.4); letter-spacing:2px; }
+    .video-wrapper { position:relative; width:100%; border:1px solid var(--border); border-radius:4px; overflow:hidden; background:#000; aspect-ratio:16/9; }
+    video { width:100%; height:100%; object-fit:contain; }
+    .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:rgba(255,255,255,.25); font-size:.85rem; letter-spacing:2px; }
+    .overlay span { font-size:4rem; }
+    .live-badge { position:absolute; top:12px; left:12px; display:none; align-items:center; gap:6px; background:rgba(0,0,0,.75); border:1px solid var(--red); padding:4px 12px; border-radius:2px; font-size:.7rem; letter-spacing:2px; color:var(--red); }
+    .live-badge.show { display:flex; }
+    .dot { width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+    .fs-btn { position:absolute; bottom:12px; right:12px; background:rgba(0,0,0,.75); border:1px solid var(--border); color:var(--blue); font-family:'Share Tech Mono',monospace; font-size:.75rem; padding:6px 14px; border-radius:2px; cursor:pointer; letter-spacing:1px; }
+    .fs-btn:hover { border-color:var(--blue); }
+    .status { font-size:.72rem; letter-spacing:1.5px; color:rgba(0,207,255,.5); text-align:center; }
+    .status.error { color:var(--red); }
+    .status.success { color:var(--green); }
+    .status.waiting { color:#ffcc00; }
+    .phone-link { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:14px 18px; width:100%; max-width:600px; }
+    .phone-link label { font-size:.7rem; letter-spacing:2px; color:rgba(0,207,255,.4); display:block; margin-bottom:8px; }
+    .link-row { display:flex; gap:8px; align-items:center; }
+    .link-text { flex:1; font-size:.75rem; color:var(--blue); word-break:break-all; }
+    .copy-btn { background:transparent; border:1px solid var(--blue); color:var(--blue); font-family:'Rajdhani',sans-serif; font-size:.85rem; font-weight:700; letter-spacing:2px; padding:8px 14px; border-radius:3px; cursor:pointer; white-space:nowrap; }
+    .copy-btn:hover { background:rgba(0,207,255,.1); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🖥 CAM VIEWER</h1>
+  <p class="sub">WAITING FOR PHONE TO CONNECT...</p>
+
+  <div class="video-wrapper">
+    <div class="overlay" id="overlay"><span>📱</span>OPEN PHONE LINK TO START STREAMING</div>
+    <video id="video" autoplay playsinline></video>
+    <div class="live-badge" id="liveBadge"><div class="dot"></div> LIVE</div>
+    <button class="fs-btn" onclick="goFullscreen()">⛶ FULLSCREEN</button>
+  </div>
+
+  <div class="status" id="status">WAITING FOR PHONE...</div>
+
+  <div class="phone-link">
+    <label>📱 SEND THIS LINK TO YOUR PHONE</label>
+    <div class="link-row">
+      <span class="link-text" id="phoneLink"></span>
+      <button class="copy-btn" onclick="copyPhoneLink()">COPY</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let pc = null;
+
+  const iceConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  // Show phone link
+  const phoneUrl = location.origin + '/phone.html';
+  document.getElementById('phoneLink').textContent = phoneUrl;
+
+  socket.emit('viewer-ready');
+
+  // Streamer came online — request stream
+  socket.on('streamer-available', () => {
+    setStatus('PHONE DETECTED! CONNECTING...', 'waiting');
+    socket.emit('request-stream');
+    createPeerConnection();
+  });
+
+  socket.on('streamer-offline', () => {
+    setStatus('PHONE DISCONNECTED', 'error');
+    document.getElementById('liveBadge').classList.remove('show');
+    document.getElementById('overlay').style.display = 'flex';
+    if (pc) { pc.close(); pc = null; }
+  });
+
+  function createPeerConnection() {
+    pc = new RTCPeerConnection(iceConfig);
+
+    pc.ontrack = (e) => {
+      const video = document.getElementById('video');
+      video.srcObject = e.streams[0];
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('liveBadge').classList.add('show');
+      setStatus('📡 RECEIVING LIVE FEED FROM PHONE', 'success');
+    };
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) socket.emit('ice-candidate', { candidate: e.candidate, to: 'streamer' });
+    };
+  }
+
+  socket.on('offer', async ({ sdp }) => {
+    if (!pc) createPeerConnection();
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('answer', { sdp: pc.localDescription });
+  });
+
+  socket.on('ice-candidate', async ({ candidate }) => {
+    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+
+  function goFullscreen() {
+    const v = document.getElementById('video');
+    if (v.requestFullscreen) v.requestFullscreen();
+    else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+  }
+
+  function copyPhoneLink() {
+    navigator.clipboard.writeText(phoneUrl).then(() => setStatus('LINK COPIED! SEND TO YOUR PHONE', 'success'));
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg; el.className = 'status ' + (type || '');
+  }
+</script>
+</body>
+</html>

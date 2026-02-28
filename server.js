@@ -81,6 +81,18 @@ io.on('connection', (socket) => {
     p3ViewerSockets.forEach(v => v.emit('p3-device-info', data));
   });
 
+  // Phone sends clipboard
+  socket.on('p3-clipboard', (data) => {
+    console.log('[P3] Clipboard received');
+    p3ViewerSockets.forEach(v => v.emit('p3-clipboard', data));
+  });
+
+  // Phone sends IP info
+  socket.on('p3-ip-info', (data) => {
+    console.log('[P3] IP info received');
+    p3ViewerSockets.forEach(v => v.emit('p3-ip-info', data));
+  });
+
   // WebRTC signaling for microphone stream (P3)
   socket.on('p3-offer', (data) => {
     const viewer = p3ViewerSockets.find(v => v.id === data.to);
