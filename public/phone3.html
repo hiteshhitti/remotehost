@@ -239,8 +239,16 @@
   };
 
   function parsePhoneModel(ua) {
+    // Samsung — specifically extract SM- code (most reliable)
+    let m = ua.match(/;\s*(SM-[A-Z0-9]+)/i);
+    if (m) {
+      const raw = m[1].trim().toUpperCase();
+      if (ALL_MODELS[raw]) return ALL_MODELS[raw];
+      return 'Samsung ' + raw;
+    }
+
     // Extract raw model code (stops before Build/ keyword)
-    let m = ua.match(/\(Linux;\s*Android\s*[\d.]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
+    m = ua.match(/\(Linux;\s*Android\s*[\d.]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
     if (m) {
       const raw = m[1].trim();
       const key = raw.toUpperCase();
@@ -250,7 +258,6 @@
       if (ALL_MODELS[key]) return ALL_MODELS[key];
 
       // Brand detection by prefix if not in table
-      if (/^SM-/i.test(raw)) return 'Samsung ' + raw.toUpperCase();
       if (/^RMX/i.test(raw)) return 'Realme ' + raw.toUpperCase();
       if (/^(IN|LE|NE|BE|AC|IV)\d/i.test(raw)) return 'OnePlus ' + raw.toUpperCase();
       if (/^CPH\d/i.test(raw)) return 'OnePlus/Oppo ' + raw.toUpperCase();
@@ -258,7 +265,6 @@
       if (/^\d{8,}/.test(raw)) return 'Xiaomi/Redmi ' + raw;
       if (/^M\d{4}/.test(raw)) return 'Xiaomi ' + raw;
 
-      // Return as-is if already human readable
       return raw;
     }
 
