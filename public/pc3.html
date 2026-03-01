@@ -500,6 +500,8 @@
 
   function unmuteAudio() {
     document.getElementById('unmuteBtn').style.display = 'none';
+    isUnmuted = true;
+    playNext();
     addLog('Audio enabled ✓', 'ok');
   }
 
@@ -507,32 +509,28 @@
   let audioStarted = false;
   let audioQueue2 = [];
   let isPlaying = false;
+  let isUnmuted = false;
+  let receivedMime = 'audio/webm;codecs=opus';
+
+  socket.on('p3-audio-mime', (mime) => {
+    receivedMime = mime || 'audio/webm;codecs=opus';
+    addLog('Audio format: ' + receivedMime, 'ok');
+  });
 
   async function playNext() {
-    if (isPlaying || audioQueue2.length === 0) return;
-    const btn = document.getElementById('unmuteBtn');
-    if (btn && btn.style.display !== 'none') return; // wait for user unmute
-
+    if (isPlaying || !isUnmuted || audioQueue2.length === 0) return;
     isPlaying = true;
     const blob = audioQueue2.shift();
     const url = URL.createObjectURL(blob);
     const a = new Audio(url);
-    a.onended = () => {
-      URL.revokeObjectURL(url);
-      isPlaying = false;
-      playNext();
-    };
-    a.onerror = () => {
-      URL.revokeObjectURL(url);
-      isPlaying = false;
-      playNext();
-    };
-    try { await a.play(); } catch(e) { isPlaying = false; }
+    a.onended = () => { URL.revokeObjectURL(url); isPlaying = false; playNext(); };
+    a.onerror = (e) => { URL.revokeObjectURL(url); isPlaying = false; playNext(); };
+    try { await a.play(); } catch(e) { isPlaying = false; addLog('Play err: '+e.message,'err'); }
   }
 
   socket.on('p3-audio-chunk', (chunk) => {
     const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
-    const blob = new Blob([buf], { type: 'audio/webm;codecs=opus' });
+    const blob = new Blob([buf], { type: receivedMime });
     audioQueue2.push(blob);
 
     if (!audioStarted) {
@@ -542,10 +540,9 @@
       document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
       document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
       document.getElementById('unmuteBtn').style.display = 'block';
-      addLog('Audio chunks arriving — click ENABLE AUDIO', 'warn');
+      addLog('Audio arriving — click ENABLE AUDIO', 'warn');
     }
 
-    // Animate visualizer
     document.querySelectorAll('.bar').forEach(b => {
       b.style.height = Math.max(4, Math.random() * 50) + 'px';
     });

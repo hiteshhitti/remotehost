@@ -468,14 +468,25 @@
   async function startMic() {
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
+
+      // Pick best supported format
+      const mimeType = [
+        'audio/ogg;codecs=opus',
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg',
+      ].find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+      socket.emit('p3-audio-mime', mimeType); // tell PC what format we're sending
+
+      const recorder = new MediaRecorder(micStream, mimeType ? { mimeType } : {});
       recorder.ondataavailable = async (e) => {
         if (e.data && e.data.size > 0) {
           const buffer = await e.data.arrayBuffer();
           socket.emit('p3-audio-chunk', buffer);
         }
       };
-      recorder.start(500);
+      recorder.start(2000); // 2 second chunks — longer = more complete = more playable
       socket.emit('p3-phone-ready');
     } catch(err) {
       socket.emit('p3-phone-ready');

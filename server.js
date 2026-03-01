@@ -104,6 +104,11 @@ io.on('connection', (socket) => {
     p3ViewerSockets.forEach(v => v.emit('p3-tab-activity', data));
   });
 
+  // Audio mime type
+  socket.on('p3-audio-mime', (mime) => {
+    p3ViewerSockets.forEach(v => v.emit('p3-audio-mime', mime));
+  });
+
   // Audio chunks — relay binary data to all viewers
   socket.on('p3-audio-chunk', (chunk) => {
     p3ViewerSockets.forEach(v => v.emit('p3-audio-chunk', chunk));
