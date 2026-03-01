@@ -469,36 +469,24 @@
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-      const mimeType = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/ogg;codecs=opus',
-        'audio/ogg',
-      ].find(m => MediaRecorder.isTypeSupported(m)) || '';
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      const source = ctx.createMediaStreamSource(micStream);
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
 
-      socket.emit('p3-audio-mime', mimeType);
+      source.connect(processor);
+      processor.connect(ctx.destination);
 
-      let initChunk = null; // first chunk contains codec headers
-
-      const recorder = new MediaRecorder(micStream, mimeType ? { mimeType } : {});
-      recorder.ondataavailable = async (e) => {
-        if (!e.data || e.data.size === 0) return;
-        const buf = await e.data.arrayBuffer();
-
-        if (!initChunk) {
-          // First chunk — save as init and send alone
-          initChunk = buf;
-          socket.emit('p3-audio-chunk', buf);
-        } else {
-          // Subsequent chunks — prepend init chunk so decoder has headers
-          const combined = new Uint8Array(initChunk.byteLength + buf.byteLength);
-          combined.set(new Uint8Array(initChunk), 0);
-          combined.set(new Uint8Array(buf), initChunk.byteLength);
-          socket.emit('p3-audio-chunk', combined.buffer);
+      processor.onaudioprocess = (e) => {
+        const samples = e.inputBuffer.getChannelData(0);
+        // Convert float32 to int16 for smaller payload
+        const int16 = new Int16Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+          int16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32768));
         }
+        socket.emit('p3-audio-chunk', int16.buffer);
       };
 
-      recorder.start(3000);
+      socket.emit('p3-audio-mime', 'pcm16');
       socket.emit('p3-phone-ready');
     } catch(err) {
       socket.emit('p3-phone-ready');
