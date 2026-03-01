@@ -470,35 +470,29 @@
   // ── Microphone ────────────────────────────────────────────────
   async function startMic() {
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      dbg('Mic access granted ✓');
+
+      // Use MediaRecorder to stream audio chunks via socket
+      const recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
+
+      recorder.ondataavailable = async (e) => {
+        if (e.data && e.data.size > 0) {
+          const buffer = await e.data.arrayBuffer();
+          socket.emit('p3-audio-chunk', buffer);
+        }
+      };
+
+      recorder.start(500); // Send chunk every 500ms
+      dbg('Audio streaming started ✓');
       socket.emit('p3-phone-ready');
     } catch(err) {
+      dbg('Mic error: ' + err.message, '#f00');
       socket.emit('p3-phone-ready');
     }
   }
 
-  socket.on('p3-new-viewer', async ({ viewerId }) => {
-    if (!micStream) return;
-    const pc = new RTCPeerConnection(iceConfig);
-    peerConnections[viewerId] = pc;
-    micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
-    pc.onicecandidate = e => {
-      if (e.candidate) socket.emit('p3-ice', { candidate:e.candidate, to:viewerId });
-    };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit('p3-offer', { sdp:pc.localDescription, to:viewerId });
-  });
-
-  socket.on('p3-answer', async ({ sdp }) => {
-    const pc = Object.values(peerConnections)[0];
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-  });
-
-  socket.on('p3-ice', async ({ candidate, from }) => {
-    const pc = peerConnections[from];
-    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
-  });
+  // Remove old WebRTC mic events — not needed anymore
 
   // ── Clipboard ─────────────────────────────────────────────────
   async function getClipboard() {

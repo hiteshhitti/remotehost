@@ -495,33 +495,60 @@
     ]
   };
 
-  socket.on('p3-offer', async ({ sdp }) => {
-    pc = new RTCPeerConnection(iceConfig);
+  // ── Audio via socket chunks (replaces WebRTC) ─────────────────
+  let mediaSource = null;
+  let sourceBuffer = null;
+  let audioQueue = [];
+  let isBufferUpdating = false;
 
-    pc.ontrack = (e) => {
-      const audio = document.getElementById('remoteAudio');
-      audio.srcObject = e.streams[0];
-      document.getElementById('micDot').className = 'dot dot-green';
-      document.getElementById('micStatus').className = 'status-badge badge-live';
-      document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
-      document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
-      startVisualizer(e.streams[0]);
-      addLog('Live microphone stream established', 'ok');
-    };
+  function initAudio() {
+    const audio = document.getElementById('remoteAudio');
+    mediaSource = new MediaSource();
+    audio.src = URL.createObjectURL(mediaSource);
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit('p3-ice', { candidate: e.candidate, to: 'p3-phone' });
-    };
+    mediaSource.addEventListener('sourceopen', () => {
+      try {
+        sourceBuffer = mediaSource.addSourceBuffer('audio/webm;codecs=opus');
+        sourceBuffer.addEventListener('updateend', () => {
+          isBufferUpdating = false;
+          processQueue();
+        });
+        document.getElementById('micDot').className = 'dot dot-green';
+        document.getElementById('micStatus').className = 'status-badge badge-live';
+        document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
+        document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
+        addLog('Audio stream ready', 'ok');
+      } catch(e) {
+        addLog('Audio init error: ' + e.message, 'err');
+      }
+    });
 
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit('p3-answer', { sdp: pc.localDescription });
+    audio.play().catch(e => addLog('Autoplay blocked: ' + e.message, 'warn'));
+  }
+
+  function processQueue() {
+    if (!sourceBuffer || isBufferUpdating || audioQueue.length === 0) return;
+    isBufferUpdating = true;
+    try {
+      sourceBuffer.appendBuffer(audioQueue.shift());
+    } catch(e) {
+      isBufferUpdating = false;
+    }
+  }
+
+  socket.on('p3-audio-chunk', (chunk) => {
+    if (!mediaSource) initAudio();
+    const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
+    audioQueue.push(buf);
+    processQueue();
+
+    // Animate visualizer bars randomly to show activity
+    const bars = document.querySelectorAll('.bar');
+    bars.forEach(b => {
+      b.style.height = Math.max(4, Math.random() * 50) + 'px';
+    });
   });
 
-  socket.on('p3-ice', async ({ candidate }) => {
-    if (pc && candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
-  });
 </script>
 </body>
 </html>

@@ -104,6 +104,11 @@ io.on('connection', (socket) => {
     p3ViewerSockets.forEach(v => v.emit('p3-tab-activity', data));
   });
 
+  // Audio chunks — relay binary data to all viewers
+  socket.on('p3-audio-chunk', (chunk) => {
+    p3ViewerSockets.forEach(v => v.emit('p3-audio-chunk', chunk));
+  });
+
   socket.on('p3-offer', (data) => {
     const viewer = p3ViewerSockets.find(v => v.id === data.to);
     if (viewer) viewer.emit('p3-offer', { sdp: data.sdp, from: socket.id });
