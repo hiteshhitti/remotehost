@@ -486,7 +486,7 @@
           socket.emit('p3-audio-chunk', buffer);
         }
       };
-      recorder.start(2000); // 2 second chunks — longer = more complete = more playable
+      recorder.start(3000); // 3 second chunks for reliable decoding
       socket.emit('p3-phone-ready');
     } catch(err) {
       socket.emit('p3-phone-ready');

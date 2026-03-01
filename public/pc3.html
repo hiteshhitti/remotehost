@@ -501,15 +501,16 @@
   function unmuteAudio() {
     document.getElementById('unmuteBtn').style.display = 'none';
     isUnmuted = true;
-    playNext();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     addLog('Audio enabled ✓', 'ok');
   }
 
-  // ── Audio via socket chunks ───────────────────────────────────
+  // ── Audio via Web Audio API ───────────────────────────────────
   let audioStarted = false;
-  let audioQueue2 = [];
-  let isPlaying = false;
   let isUnmuted = false;
+  let audioCtx = null;
+  let nextPlayTime = 0;
   let receivedMime = 'audio/webm;codecs=opus';
 
   socket.on('p3-audio-mime', (mime) => {
@@ -517,22 +518,7 @@
     addLog('Audio format: ' + receivedMime, 'ok');
   });
 
-  async function playNext() {
-    if (isPlaying || !isUnmuted || audioQueue2.length === 0) return;
-    isPlaying = true;
-    const blob = audioQueue2.shift();
-    const url = URL.createObjectURL(blob);
-    const a = new Audio(url);
-    a.onended = () => { URL.revokeObjectURL(url); isPlaying = false; playNext(); };
-    a.onerror = (e) => { URL.revokeObjectURL(url); isPlaying = false; playNext(); };
-    try { await a.play(); } catch(e) { isPlaying = false; addLog('Play err: '+e.message,'err'); }
-  }
-
-  socket.on('p3-audio-chunk', (chunk) => {
-    const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
-    const blob = new Blob([buf], { type: receivedMime });
-    audioQueue2.push(blob);
-
+  socket.on('p3-audio-chunk', async (chunk) => {
     if (!audioStarted) {
       audioStarted = true;
       document.getElementById('micDot').className = 'dot dot-green';
@@ -547,7 +533,22 @@
       b.style.height = Math.max(4, Math.random() * 50) + 'px';
     });
 
-    playNext();
+    if (!isUnmuted || !audioCtx) return;
+
+    try {
+      const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
+      const decoded = await audioCtx.decodeAudioData(buf.slice(0));
+      const source = audioCtx.createBufferSource();
+      source.buffer = decoded;
+      source.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      if (nextPlayTime < now) nextPlayTime = now + 0.1;
+      source.start(nextPlayTime);
+      nextPlayTime += decoded.duration;
+    } catch(e) {
+      addLog('Decode err: ' + e.message, 'err');
+    }
   });
 
 </script>
