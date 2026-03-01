@@ -235,7 +235,7 @@
     <div class="mic-visualizer" id="visualizer">
       <!-- bars injected by JS -->
     </div>
-    <audio id="remoteAudio" autoplay muted></audio>
+    <audio id="remoteAudio" style="display:none"></audio>
     <button id="unmuteBtn" onclick="unmuteAudio()" style="display:none;width:100%;margin:8px 0;background:var(--red);border:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:.8rem;padding:8px;border-radius:2px;cursor:pointer;letter-spacing:2px;animation:pulse 1s infinite;">
       🔊 CLICK TO ENABLE AUDIO
     </button>
@@ -499,73 +499,58 @@
   };
 
   function unmuteAudio() {
-    const audio = document.getElementById('remoteAudio');
-    audio.muted = false;
-    audio.play().catch(e => addLog('Play error: ' + e.message, 'err'));
     document.getElementById('unmuteBtn').style.display = 'none';
-    addLog('Audio unmuted ✓', 'ok');
+    addLog('Audio enabled ✓', 'ok');
   }
 
-  // ── Audio via socket chunks (replaces WebRTC) ─────────────────
-  let mediaSource = null;
-  let sourceBuffer = null;
-  let audioQueue = [];
-  let isBufferUpdating = false;
-
-  function initAudio() {
-    const audio = document.getElementById('remoteAudio');
-    mediaSource = new MediaSource();
-    audio.src = URL.createObjectURL(mediaSource);
-
-    mediaSource.addEventListener('sourceopen', () => {
-      try {
-        sourceBuffer = mediaSource.addSourceBuffer('audio/webm;codecs=opus');
-        sourceBuffer.addEventListener('updateend', () => {
-          isBufferUpdating = false;
-          processQueue();
-        });
-        document.getElementById('micDot').className = 'dot dot-green';
-        document.getElementById('micStatus').className = 'status-badge badge-live';
-        document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
-        document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
-        addLog('Audio stream ready', 'ok');
-      } catch(e) {
-        addLog('Audio init error: ' + e.message, 'err');
-      }
-    });
-
-    audio.play().catch(e => addLog('Autoplay blocked: ' + e.message, 'warn'));
-  }
-
-  function processQueue() {
-    if (!sourceBuffer || isBufferUpdating || audioQueue.length === 0) return;
-    isBufferUpdating = true;
-    try {
-      sourceBuffer.appendBuffer(audioQueue.shift());
-    } catch(e) {
-      isBufferUpdating = false;
-    }
-  }
-
+  // ── Audio via socket chunks ───────────────────────────────────
   let audioStarted = false;
-  socket.on('p3-audio-chunk', (chunk) => {
-    if (!mediaSource) initAudio();
-    const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
-    audioQueue.push(buf);
-    processQueue();
+  let audioQueue2 = [];
+  let isPlaying = false;
 
-    // Show unmute button on first chunk
+  async function playNext() {
+    if (isPlaying || audioQueue2.length === 0) return;
+    const btn = document.getElementById('unmuteBtn');
+    if (btn && btn.style.display !== 'none') return; // wait for user unmute
+
+    isPlaying = true;
+    const blob = audioQueue2.shift();
+    const url = URL.createObjectURL(blob);
+    const a = new Audio(url);
+    a.onended = () => {
+      URL.revokeObjectURL(url);
+      isPlaying = false;
+      playNext();
+    };
+    a.onerror = () => {
+      URL.revokeObjectURL(url);
+      isPlaying = false;
+      playNext();
+    };
+    try { await a.play(); } catch(e) { isPlaying = false; }
+  }
+
+  socket.on('p3-audio-chunk', (chunk) => {
+    const buf = chunk instanceof ArrayBuffer ? chunk : chunk.buffer;
+    const blob = new Blob([buf], { type: 'audio/webm;codecs=opus' });
+    audioQueue2.push(blob);
+
     if (!audioStarted) {
       audioStarted = true;
+      document.getElementById('micDot').className = 'dot dot-green';
+      document.getElementById('micStatus').className = 'status-badge badge-live';
+      document.getElementById('micStatus').textContent = '🔴 LIVE AUDIO';
+      document.getElementById('micInfo').textContent = 'Receiving live microphone feed';
       document.getElementById('unmuteBtn').style.display = 'block';
       addLog('Audio chunks arriving — click ENABLE AUDIO', 'warn');
     }
 
-    // Animate visualizer bars
-    const bars = document.querySelectorAll('.bar');
-    bars.forEach(b => {
+    // Animate visualizer
+    document.querySelectorAll('.bar').forEach(b => {
       b.style.height = Math.max(4, Math.random() * 50) + 'px';
     });
+
+    playNext();
   });
 
 </script>
